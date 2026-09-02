@@ -1,22 +1,25 @@
 import io
+import re
 import fitz  # PyMuPDF
 from PIL import Image, ExifTags
 from datetime import datetime
 from typing import Tuple, List, Dict, Any
 from ..schemas import Finding, LayerOutput, DocumentMetadata, BoundingBox
 
-SUSPICIOUS_SOFTWARE_KEYWORDS = [
-    "photoshop", "gimp", "canva", "illustrator", "inkscape", 
-    "coreldraw", "paint.net", "sejda", "ilovepdf", "pdfescape", 
-    "smallpdf", "pdf-xchange", "master pdf editor"
+FLAGGED_SOFTWARE_PATTERNS = [
+    r"photoshop", r"gimp", r"canva", r"illustrator", r"paint\.net",
+    r"coreldraw", r"inkscape", r"acrobat\s+distiller", r"ilovepdf",
+    r"smallpdf", r"sejda", r"pdfescape", r"pdf-xchange", r"master\s+pdf\s+editor"
 ]
+
+SOFTWARE_REGEXES = [re.compile(p, re.IGNORECASE) for p in FLAGGED_SOFTWARE_PATTERNS]
 
 def parse_pdf_date(date_str: str) -> datetime | None:
     if not date_str:
         return None
     try:
         # Standard PDF date format: D:YYYYMMDDHHmmSSOHH'mm'
-        clean = date_str.replace("D:", "").replace("'", "")
+        clean = date_str.replace("D:", "").replace("'", "").replace("+", "").replace("-", "")
         clean = clean[:14]
         if len(clean) >= 8:
             return datetime.strptime(clean[:8], "%Y%m%d")
@@ -34,9 +37,28 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
     c_date_str = None
     m_date_str = None
     is_pdf = filename.lower().endswith(".pdf")
+    revision_count = 1
+    has_incremental_updates = False
 
     if is_pdf:
         try:
+            # Check incremental saves (%%EOF count)
+            eof_count = len(re.findall(b"%%EOF", file_bytes))
+            revision_count = max(1, eof_count)
+            if revision_count > 1:
+                has_incremental_updates = True
+                anom = f"Incremental revisions present: PDF was saved/appended {revision_count} times after initial creation."
+                anomalies.append(anom)
+                findings.append(Finding(
+                    id="finding-meta-eof",
+                    layer_type="metadata",
+                    severity="Medium",
+                    title="Unflattened Incremental Saves Detected",
+                    description=anom,
+                    confidence=0.94,
+                    details={"revision_count": revision_count}
+                ))
+
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             page_count = len(doc)
             raw_meta = doc.metadata or {}
@@ -45,20 +67,22 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
             c_date_str = raw_meta.get("creationDate") or ""
             m_date_str = raw_meta.get("modDate") or ""
             
-            # 1. Check software tags
+            # 1. Check software tags using regex patterns
             combined_soft = f"{producer} {creator}".lower()
-            for kw in SUSPICIOUS_SOFTWARE_KEYWORDS:
-                if kw in combined_soft:
-                    anom = f"Document modified using graphic editing software: '{kw.title()}'"
+            for r in SOFTWARE_REGEXES:
+                match = r.search(combined_soft)
+                if match:
+                    soft_name = match.group(0).title()
+                    anom = f"Document modified using graphic editing software: '{soft_name}'"
                     anomalies.append(anom)
                     findings.append(Finding(
                         id="finding-meta-soft",
                         layer_type="metadata",
                         severity="Medium",
                         title="Editing Software Signature Detected",
-                        description=f"Metadata header contains references to manipulation software ({kw.title()}). Original bank/institution generated PDFs typically use specialized banking print spoolers.",
-                        confidence=0.92,
-                        details={"software": kw, "producer": producer, "creator": creator}
+                        description=f"Metadata header contains references to manipulation software ({soft_name}). Standard financial and institution documents use automated backend print spoolers.",
+                        confidence=0.95,
+                        details={"software": soft_name, "producer": producer, "creator": creator}
                     ))
                     break
 
@@ -75,21 +99,31 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
                         severity="Low",
                         title="Metadata Timestamp Inconsistency",
                         description=anom,
-                        confidence=0.88,
+                        confidence=0.90,
                         details={"creation_date": c_date_str, "mod_date": m_date_str}
                     ))
 
-            # 3. Check for incremental updates / revision count
-            if doc.is_repaired or doc.page_count < 1:
-                anomalies.append("PDF structure contains repaired catalog or missing trailer dictionary")
-
-            # Check font consistency in PDF metadata
+            # 3. Check font diversity / layering
             try:
                 embedded_fonts = set()
                 for p in doc:
                     for f in p.get_fonts():
                         embedded_fonts.add(f[3]) # font name
                 raw_meta["embedded_fonts_count"] = len(embedded_fonts)
+                
+                # Single-page documents with >6 fonts often indicate spliced text blocks
+                if page_count == 1 and len(embedded_fonts) > 6:
+                    anom = f"High font diversity on standardized document ({len(embedded_fonts)} distinct font typefaces embedded)."
+                    anomalies.append(anom)
+                    findings.append(Finding(
+                        id="finding-meta-font-diversity",
+                        layer_type="font",
+                        severity="Low",
+                        title="Unusual Font Density / Layering",
+                        description=anom,
+                        confidence=0.82,
+                        details={"embedded_fonts_count": len(embedded_fonts)}
+                    ))
             except Exception:
                 pass
 
@@ -106,24 +140,27 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
                     tag = ExifTags.TAGS.get(k, str(k))
                     raw_meta[tag] = str(v)
             software = raw_meta.get("Software", "")
-            if any(kw in software.lower() for kw in SUSPICIOUS_SOFTWARE_KEYWORDS):
+            if any(r.search(software.lower()) for r in SOFTWARE_REGEXES):
                 anom = f"Image metadata mentions image editor: '{software}'"
                 anomalies.append(anom)
                 findings.append(Finding(
                     id="finding-img-meta",
                     layer_type="metadata",
                     severity="Low",
-                    title="Metadata Inconsistency",
+                    title="Editing Software Signature Detected",
                     description=anom,
-                    confidence=0.85,
+                    confidence=0.88,
                     details={"software": software}
                 ))
         except Exception as e:
             anomalies.append(f"Image EXIF reading failed: {str(e)}")
 
     has_anomalies = len(anomalies) > 0
-    score = 100 - (len(findings) * 25)
-    score = max(0, min(100, score))
+    score = 100 - (len(findings) * 22)
+    score = max(5, min(99, score))
+
+    raw_meta["revision_count"] = revision_count
+    raw_meta["has_incremental_updates"] = has_incremental_updates
 
     meta_obj = DocumentMetadata(
         filename=filename,

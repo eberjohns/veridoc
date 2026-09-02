@@ -47,6 +47,14 @@ class PageInfo(BaseModel):
     height: int
     heatmap_data_url: Optional[str] = None
 
+class QualityMetrics(BaseModel):
+    blur_score: float = 0.0
+    is_blurry: bool = False
+    glare_percentage: float = 0.0
+    has_excessive_glare: bool = False
+    skew_angle_corrected: float = 0.0
+    gate_passed: bool = True
+
 class DocumentMetadata(BaseModel):
     filename: str
     filesize_bytes: int
@@ -67,6 +75,7 @@ class AnalyzeResponse(BaseModel):
     trust_score: int  # 0 - 100
     risk_level: str   # 'CRITICAL', 'SUSPICIOUS', 'MODERATE', 'VERIFIED'
     summary: str
+    quality_metrics: Optional[QualityMetrics] = None
     metadata: DocumentMetadata
     findings: List[Finding] = []
     layers: Dict[str, LayerOutput] = {}

@@ -22,20 +22,21 @@
 ## 🌟 Key Features
 
 ### 1. Forensic Micro-Modules (Python & FastAPI)
-- **Module 1: Metadata Forensics** (`PyMuPDF` + `Pillow`)
-  - Inspects internal PDF dictionaries and EXIF headers.
-  - Flags manipulation software signatures (e.g., *Adobe Photoshop*, *Canva*, *GIMP*, *Sejda*, *iLovePDF*).
-  - Identifies temporal paradoxes (e.g., Modification date preceding Creation date).
-- **Module 2: Visual & ELA Forensics** (`OpenCV` + `NumPy`)
+- **Module 1: Pre-Flight Quality Gates & Deskewing** (`OpenCV` + `NumPy`)
+  - Evaluates capture quality: **Laplacian Sharpness/Blur Variance** (`threshold: 100.0`) and **Lighting Glare Percentage** (`cutoff: 250`).
+  - Automated Skew Angle Detection & **Affine Deskew Normalization** (`cv2.minAreaRect` + `cv2.warpAffine`).
+- **Module 2: File & PDF Metadata Forensics** (`PyMuPDF` + `Pillow`)
+  - Inspects internal PDF dictionaries and EXIF headers for editing software signatures (*Adobe Photoshop*, *Canva*, *GIMP*, *Sejda*, *iLovePDF*, *Illustrator*, *CorelDraw*).
+  - Identifies **Incremental Saves (`%%EOF` revision counting)** to detect unflattened modifications after initial creation.
+  - Checks **High Font Density / Layering** on standardized documents and temporal timestamp paradoxes.
+- **Module 3: Pixel & ELA Forensics** (`OpenCV` + `NumPy`)
   - **Error Level Analysis (ELA)**: Resaves at 90% JPEG quality, computes absolute error matrices, and generates normalized radiant heatmaps.
+  - **Gaussian Noise Residual Analysis**: Measures noise standard deviation (`std_noise < 1.5`) to uncover synthetic flat noise profiles and AI-generated text blocks.
   - **Copy-Paste & Cloning Detection**: Identifies duplicated graphical elements or transaction rows across pages and reference documents.
-  - **Noise & Splicing Analysis**: Measures Laplacian high-frequency variance to uncover sharp splice boundaries.
-- **Module 3: OCR & Semantic Math Engine** (`PyMuPDF` / `OCR` + Semantic Parsers)
-  - Extracts spatial bounding boxes for financial tables, dates, and amounts.
-  - **Arithmetic Consistency Verification**:
-    $$\text{Previous Balance (\$6,591.12)} + \text{Deposits (\$12,430.00)} - \text{Withdrawals (\$13,856.73)} = \mathbf{\$5,364.39}$$
-    *Tampered text prints:* $\mathbf{\$5,164.39}$ $\rightarrow$ Flags $-\$200.00$ balance mismatch.
-  - **Font & Style Anomaly Detection**: Checks for baseline deviations, irregular font weights, and mismatched glyph metrics.
+- **Module 4: OCR, Math & Cryptographic Verification** (`PyMuPDF` + `Verhoeff Algorithm` + `OpenCV`)
+  - Extracts spatial bounding boxes for financial tables, dates, and amounts with arithmetic verification.
+  - **Cryptographic Verhoeff Checksum Validator**: Validates 12-digit identity, bank routing, and transaction check digits.
+  - **Barcode & QR Code Cross-Verification**: Cross-references printed OCR text against cryptographically embedded barcode payloads.
 
 ### 2. React 3-Zone Master-Detail Forensic Workspace
 - **Zone 1 (Left 15% - Layer Controls)**:

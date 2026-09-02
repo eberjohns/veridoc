@@ -509,15 +509,46 @@ export default function Zone3Auditor({
           /* Metadata & History Tab */
           <div style={{ fontSize: '12px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0 }}>
             <div style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-              <div style={{ fontWeight: '700', color: '#1E293B', marginBottom: '8px' }}>File Metadata</div>
+              <div style={{ fontWeight: '700', color: '#1E293B', marginBottom: '8px' }}>File & Container Telemetry</div>
               <div style={{ fontSize: '11px', lineHeight: '1.7' }}>
                 <div><span style={{ color: '#64748B' }}>Filename:</span> {analysisData?.metadata?.filename || 'Unknown'}</div>
                 <div><span style={{ color: '#64748B' }}>Producer:</span> {analysisData?.metadata?.producer || 'N/A'}</div>
                 <div><span style={{ color: '#64748B' }}>Creator:</span> {analysisData?.metadata?.creator || 'N/A'}</div>
                 <div><span style={{ color: '#64748B' }}>Created:</span> {analysisData?.metadata?.creation_date || 'N/A'}</div>
                 <div><span style={{ color: '#64748B' }}>Modified:</span> {analysisData?.metadata?.modification_date || 'N/A'}</div>
+                <div><span style={{ color: '#64748B' }}>Revisions / Saves:</span> {analysisData?.metadata?.raw_metadata?.revision_count || 1}</div>
+                <div><span style={{ color: '#64748B' }}>Embedded Fonts:</span> {analysisData?.metadata?.raw_metadata?.embedded_fonts_count || 'Standard'}</div>
               </div>
             </div>
+
+            {analysisData?.quality_metrics && (
+              <div style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                <div style={{ fontWeight: '700', color: '#1E293B', marginBottom: '8px' }}>Pre-Flight Quality Gates</div>
+                <div style={{ fontSize: '11px', lineHeight: '1.7' }}>
+                  <div>
+                    <span style={{ color: '#64748B' }}>Sharpness / Blur: </span> 
+                    <strong>{analysisData.quality_metrics.blur_score}</strong> 
+                    <span style={{ color: analysisData.quality_metrics.is_blurry ? '#EF4444' : '#10B981', marginLeft: '4px' }}>
+                      ({analysisData.quality_metrics.is_blurry ? 'Blurry' : 'Sharp'})
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B' }}>Lighting Glare: </span> 
+                    <strong>{analysisData.quality_metrics.glare_percentage}%</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B' }}>Auto-Deskew Corrected: </span> 
+                    <strong>{analysisData.quality_metrics.skew_angle_corrected}°</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B' }}>Capture Gate: </span> 
+                    <span style={{ color: analysisData.quality_metrics.gate_passed ? '#10B981' : '#F59E0B', fontWeight: '600' }}>
+                      {analysisData.quality_metrics.gate_passed ? 'Passed ✓' : 'Sub-Optimal Lighting/Angle'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
               <div style={{ fontWeight: '700', color: '#1E293B', marginBottom: '8px' }}>Audit Log</div>

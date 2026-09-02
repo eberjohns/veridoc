@@ -427,32 +427,75 @@ export default function Zone2Canvas({
                 >
                   {pageBoxes.map((box, idx) => {
                     const isHovered = hoveredFindingId === box.target_finding_id;
+                    const isSelected = selectedFindingId === box.target_finding_id;
                     const strokeColor = box.color || (box.layer_type === 'math' ? '#EF4444' : box.layer_type === 'copy_paste' ? '#06B6D4' : '#F97316');
                     
                     return (
-                      <g key={box.id || idx}>
+                      <g 
+                        key={box.id || idx}
+                        style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                        onMouseEnter={() => onHoverFinding && onHoverFinding(box.target_finding_id)}
+                        onMouseLeave={() => onHoverFinding && onHoverFinding(null)}
+                        onClick={() => {
+                          if (onSelectFinding && box.target_finding_id) {
+                            onSelectFinding(box.target_finding_id);
+                            const cardEl = document.getElementById(`card-${box.target_finding_id}`);
+                            if (cardEl) {
+                              cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                          }
+                        }}
+                      >
+                        {/* Outer Glow on Hover */}
+                        {(isHovered || isSelected) && (
+                          <rect
+                            x={`${box.x}%`}
+                            y={`${box.y}%`}
+                            width={`${box.width}%`}
+                            height={`${box.height}%`}
+                            fill="none"
+                            stroke={strokeColor}
+                            strokeWidth="6"
+                            opacity="0.3"
+                            rx="4"
+                          />
+                        )}
+
+                        {/* Main Bounding Box */}
                         <rect
                           x={`${box.x}%`}
                           y={`${box.y}%`}
                           width={`${box.width}%`}
                           height={`${box.height}%`}
-                          fill={isHovered ? `${strokeColor}25` : `${strokeColor}10`}
+                          fill={isHovered || isSelected ? `${strokeColor}30` : `${strokeColor}14`}
                           stroke={strokeColor}
-                          strokeWidth={isHovered ? '2.5' : '1.8'}
+                          strokeWidth={isHovered || isSelected ? '2.5' : '1.8'}
                           strokeDasharray={box.layer_type === 'font' ? '4,4' : 'none'}
                           rx="3"
                         />
+
+                        {/* Tag / Label Pill */}
                         {box.tag && (
-                          <text
-                            x={`${box.x + box.width}%`}
-                            y={`${box.y + box.height * 0.7}%`}
-                            fill="#0891B2"
-                            fontSize="10"
-                            fontWeight="bold"
-                            textAnchor="end"
-                          >
-                            {box.tag}
-                          </text>
+                          <g>
+                            <rect
+                              x={`${box.x}%`}
+                              y={`${Math.max(0, box.y - 2.2)}%`}
+                              width={`${Math.min(box.width, 18)}%`}
+                              height="2.0%"
+                              fill={strokeColor}
+                              rx="2"
+                            />
+                            <text
+                              x={`${box.x + 0.4}%`}
+                              y={`${Math.max(0, box.y - 2.2) + 1.5}%`}
+                              fill="#FFFFFF"
+                              fontSize="9"
+                              fontWeight="bold"
+                              fontFamily="sans-serif"
+                            >
+                              {box.tag}
+                            </text>
+                          </g>
                         )}
                       </g>
                     );

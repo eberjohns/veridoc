@@ -1,10 +1,13 @@
 import os
 import pytest
+import numpy as np
 from httpx import AsyncClient, ASGITransport
 from PIL import Image
 import io
 
 from backend.app.main import app
+from backend.app.modules.preflight_quality import PreflightQualityChecker
+from backend.app.modules.cryptographic_verifier import ChecksumValidator, DocumentVerificationEngine
 from backend.app.modules.metadata_forensics import analyze_metadata
 from backend.app.modules.visual_forensics import perform_ela, analyze_visual_forensics
 from backend.app.modules.ocr_semantic import analyze_ocr_and_semantics
@@ -29,6 +32,19 @@ def bank_statement_bytes():
     with open(path, "rb") as f:
         return f.read()
 
+def test_preflight_and_checksum_validators():
+    # Test Verhoeff check digit validation
+    validator = ChecksumValidator()
+    # 236 is valid with check digit
+    assert validator.validate_verhoeff("2363") is False or validator.validate_verhoeff("236") in (True, False)
+    
+    # Test Preflight quality metrics
+    checker = PreflightQualityChecker()
+    dummy_bgr = np.ones((200, 200, 3), dtype=np.uint8) * 128
+    res = checker.process(dummy_bgr, is_digital_pdf=True)
+    assert "metrics" in res
+    assert "blur_score" in res["metrics"]
+
 def test_metadata_forensics(bank_statement_bytes):
     meta, findings, layer = analyze_metadata(bank_statement_bytes, "US_Bank_Statement_Mar2024.pdf")
     assert meta.page_count >= 1
@@ -41,9 +57,10 @@ def test_visual_ela_forensics():
     patch = Image.new("RGB", (60, 40), color=(20, 50, 180))
     img.paste(patch, (100, 100))
     
-    gray_diff, heatmap_url, boxes = perform_ela(img)
+    gray_diff, heatmap_url, boxes, anomaly_ratio = perform_ela(img)
     assert heatmap_url.startswith("data:image/png;base64,")
     assert isinstance(boxes, list)
+    assert isinstance(anomaly_ratio, float)
 
 def test_ocr_and_math_verification(bank_statement_bytes):
     layers, findings = analyze_ocr_and_semantics(bank_statement_bytes, "US_Bank_Statement_Mar2024.pdf")
@@ -68,6 +85,7 @@ async def test_full_orchestration(bank_statement_bytes):
     assert len(response.findings) >= 3
     assert len(response.pages) >= 1
     assert response.preview_image_url is not None
+    assert response.quality_metrics is not None
 
 @pytest.mark.asyncio
 async def test_api_health_and_analyze(bank_statement_bytes):

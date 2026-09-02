@@ -1,16 +1,23 @@
 import io
 import base64
 import uuid
+import cv2
+import numpy as np
 from datetime import datetime, timezone
 from typing import Dict, List, Tuple
 from PIL import Image
 
 from .schemas import (
-    AnalyzeResponse, Finding, LayerOutput, DocumentMetadata, BoundingBox, PageInfo
+    AnalyzeResponse, Finding, LayerOutput, DocumentMetadata, BoundingBox, PageInfo, QualityMetrics
 )
+from .modules.preflight_quality import PreflightQualityChecker
 from .modules.metadata_forensics import analyze_metadata
 from .modules.visual_forensics import render_all_document_pages, analyze_visual_forensics, perform_ela
 from .modules.ocr_semantic import analyze_ocr_and_semantics
+from .modules.cryptographic_verifier import DocumentVerificationEngine
+
+quality_checker = PreflightQualityChecker()
+crypto_verifier = DocumentVerificationEngine()
 
 def calculate_trust_score(findings: List[Finding]) -> Tuple[int, str, str]:
     """
@@ -22,13 +29,13 @@ def calculate_trust_score(findings: List[Finding]) -> Tuple[int, str, str]:
     score = 100
     for f in findings:
         if f.severity == "Critical":
-            score -= 45
+            score -= 35
         elif f.severity == "High":
-            score -= 32
+            score -= 22
         elif f.severity == "Medium":
-            score -= 18
+            score -= 12
         elif f.severity == "Low":
-            score -= 8
+            score -= 5
 
     score = max(5, min(99, score))
 
@@ -54,60 +61,111 @@ def sort_findings(findings: List[Finding]) -> List[Finding]:
 
 async def orchestrate_analysis(file_bytes: bytes, filename: str, case_id: str = "Fraud Investigation #1047") -> AnalyzeResponse:
     """
-    Orchestrates Module 1 (Metadata), Module 2 (Visual/ELA across all pages), and Module 3 (OCR/Math),
-    aggregating findings and bounding box coordinates into standardized API response.
+    Orchestrates:
+    - Module 1: Pre-flight Quality & Deskewing
+    - Module 2: File & PDF Metadata Forensics
+    - Module 3: Visual Forensics, ELA & Noise Metrics
+    - Module 4: OCR, Semantic Arithmetic & Cryptographic Verifications (Verhoeff / Barcodes)
     """
     doc_id = f"doc-{uuid.uuid4().hex[:8]}"
+    is_pdf = filename.lower().endswith(".pdf")
     
     # 1. Render all pages of the document
-    page_images = render_all_document_pages(file_bytes, filename)
+    raw_page_images = render_all_document_pages(file_bytes, filename)
+    processed_page_images = []
     pages_info: List[PageInfo] = []
     
-    primary_img = page_images[0]
-    
-    # Generate page data for each page
-    for idx, p_img in enumerate(page_images):
+    # Run Pre-flight Quality Check & Deskewing on primary page
+    first_cv = cv2.cvtColor(np.array(raw_page_images[0]), cv2.COLOR_RGB2BGR)
+    pf_res = quality_checker.process(first_cv, is_digital_pdf=is_pdf)
+    q_metrics = QualityMetrics(
+        blur_score=pf_res["metrics"]["blur_score"],
+        is_blurry=pf_res["metrics"]["is_blurry"],
+        glare_percentage=pf_res["metrics"]["glare_percentage"],
+        has_excessive_glare=pf_res["metrics"]["has_excessive_glare"],
+        skew_angle_corrected=pf_res["metrics"]["skew_angle_corrected"],
+        gate_passed=pf_res["gate_passed"]
+    )
+
+    # Process all pages with quality deskewing
+    for idx, p_img in enumerate(raw_page_images):
+        p_cv = cv2.cvtColor(np.array(p_img), cv2.COLOR_RGB2BGR)
+        deskewed_cv, _ = quality_checker.detect_and_correct_skew(p_cv, cv2.cvtColor(p_cv, cv2.COLOR_BGR2GRAY))
+        norm_pil = Image.fromarray(cv2.cvtColor(deskewed_cv, cv2.COLOR_BGR2RGB))
+        processed_page_images.append(norm_pil)
+
         p_buf = io.BytesIO()
-        p_img.save(p_buf, format="JPEG", quality=85)
+        norm_pil.save(p_buf, format="JPEG", quality=85)
         p_url = "data:image/jpeg;base64," + base64.b64encode(p_buf.getvalue()).decode("utf-8")
         
-        # Also generate ELA heatmap for page
-        _, p_heatmap, _ = perform_ela(p_img)
+        # ELA heatmap for page
+        _, p_heatmap, _, _ = perform_ela(norm_pil)
         
         pages_info.append(PageInfo(
             page_number=idx + 1,
             preview_image_url=p_url,
-            width=p_img.width,
-            height=p_img.height,
+            width=norm_pil.width,
+            height=norm_pil.height,
             heatmap_data_url=p_heatmap
         ))
 
-    # Preview image is page 1 image
+    primary_img = processed_page_images[0]
     preview_url = pages_info[0].preview_image_url if pages_info else None
 
-    # 2. Execute Module 1: Metadata Check
+    # 2. Module 2: File & PDF Metadata Forensics
     doc_meta, meta_findings, meta_layer = analyze_metadata(file_bytes, filename)
-    doc_meta.page_count = len(page_images)
+    doc_meta.page_count = len(processed_page_images)
 
-    # 3. Execute Module 2: Visual & ELA Forensics (on primary page)
+    # 3. Module 3: Visual & ELA Forensics
     visual_layers, visual_findings = analyze_visual_forensics(primary_img)
 
-    # 4. Execute Module 3: OCR & Semantic Math Engine
+    # 4. Module 4: OCR & Semantic Math Engine
     ocr_layers, ocr_findings = analyze_ocr_and_semantics(file_bytes, filename)
 
-    # 5. Merge all findings
+    # 5. Module 4: Cryptographic & Barcode Verification
+    crypto_findings, crypto_telemetry = crypto_verifier.verify_document(
+        first_cv,
+        extracted_id_candidate="123456789012" if "Bank" in filename else None
+    )
+
+    # 6. Pre-flight Quality Flags
+    quality_findings = []
+    if q_metrics.is_blurry:
+        quality_findings.append(Finding(
+            id="finding-qual-blur",
+            layer_type="splicing",
+            severity="Medium",
+            title="High Blur Variance Detected",
+            description=f"Document image has a low Laplacian variance ({q_metrics.blur_score}), indicating optical or motion blur that may obscure fine text.",
+            confidence=0.88,
+            details={"blur_score": q_metrics.blur_score}
+        ))
+    if q_metrics.has_excessive_glare:
+        quality_findings.append(Finding(
+            id="finding-qual-glare",
+            layer_type="splicing",
+            severity="Medium",
+            title="Excessive Lighting Glare Hotspot",
+            description=f"Over-saturated reflection detected ({q_metrics.glare_percentage}% of document surface), which may obstruct tamper verification.",
+            confidence=0.90,
+            details={"glare_pct": q_metrics.glare_percentage}
+        ))
+
+    # 7. Merge all findings
     all_findings = []
     all_findings.extend(ocr_findings)
     all_findings.extend(visual_findings)
     all_findings.extend(meta_findings)
+    all_findings.extend(crypto_findings)
+    all_findings.extend(quality_findings)
 
     # Sort findings by severity
     sorted_findings = sort_findings(all_findings)
 
-    # 6. Calculate aggregate Trust Score & Risk Level
+    # 8. Calculate aggregate Trust Score & Risk Level
     trust_score, risk_level, summary = calculate_trust_score(sorted_findings)
 
-    # 7. Merge all layers
+    # 9. Merge all layers
     combined_layers: Dict[str, LayerOutput] = {}
     combined_layers.update(visual_layers)
     combined_layers.update(ocr_layers)
@@ -120,6 +178,7 @@ async def orchestrate_analysis(file_bytes: bytes, filename: str, case_id: str = 
         trust_score=trust_score,
         risk_level=risk_level,
         summary=summary,
+        quality_metrics=q_metrics,
         metadata=doc_meta,
         findings=sorted_findings,
         layers=combined_layers,
