@@ -39,7 +39,7 @@
 
 ### 2. React 3-Zone Master-Detail Forensic Workspace
 - **Zone 1 (Left 15% - Layer Controls)**:
-  - Toggle switches for 8 forensic layers (*Noise Analysis*, *ELA*, *Cloning*, *Copy-Paste*, *Splicing*, *Metadata*, *Font & Style*, *Math Verification*).
+  - Streamlined toggle switches for 5 core non-redundant forensic categories (*Visual ELA & Noise*, *Copy-Paste & Cloning*, *Metadata & Software Audit*, *Font & Typography*, *Math & Logic Verification*).
   - Smooth **Layer Opacity Slider** (0% to 100%) for real-time visual blending.
   - One-click *Reset Layers* control.
 - **Zone 2 (Center 60% - Dynamic Document Canvas)**:

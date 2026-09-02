@@ -9,13 +9,14 @@ import {
   Hand, 
   Upload,
   CheckCircle2,
-  AlertTriangle
+  Trash2
 } from 'lucide-react';
 
 export default function TopNav({ 
   currentDoc, 
   caseDocs, 
   onSelectDoc, 
+  onDeleteDoc,
   zoomLevel, 
   onZoomIn, 
   onZoomOut, 
@@ -120,7 +121,7 @@ export default function TopNav({
                 top: '100%',
                 left: 0,
                 marginTop: '4px',
-                width: '300px',
+                width: '320px',
                 backgroundColor: '#FFFFFF',
                 border: '1px solid #E2E8F0',
                 borderRadius: '8px',
@@ -157,19 +158,46 @@ export default function TopNav({
                   onMouseEnter={e => e.currentTarget.style.backgroundColor = currentDoc?.id === doc.id ? '#EFF6FF' : '#F8FAFC'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = currentDoc?.id === doc.id ? '#EFF6FF' : 'transparent'}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
                     <FileText size={14} color={doc.status === 'flagged' ? '#DC2626' : '#10B981'} style={{ flexShrink: 0 }} />
                     <span style={{ fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {doc.filename}
                     </span>
                   </div>
-                  {doc.status === 'flagged' ? (
-                    <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#FEE2E2', color: '#DC2626', borderRadius: '10px', fontWeight: '600', flexShrink: 0 }}>
-                      {doc.trust_score}%
-                    </span>
-                  ) : (
-                    <CheckCircle2 size={14} color="#10B981" style={{ flexShrink: 0 }} />
-                  )}
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    {doc.status === 'flagged' ? (
+                      <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#FEE2E2', color: '#DC2626', borderRadius: '10px', fontWeight: '600' }}>
+                        {doc.trust_score}%
+                      </span>
+                    ) : (
+                      <CheckCircle2 size={14} color="#10B981" />
+                    )}
+
+                    {onDeleteDoc && (
+                      <button
+                        title="Delete Document"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteDoc(doc.id);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#94A3B8',
+                          cursor: 'pointer',
+                          padding: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          borderRadius: '3px'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.color = '#EF4444'}
+                        onMouseLeave={e => e.currentTarget.style.color = '#94A3B8'}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

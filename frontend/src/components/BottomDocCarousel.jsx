@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   FileText, 
   CheckCircle2, 
@@ -14,6 +14,8 @@ export default function BottomDocCarousel({
   onOpenUpload,
   onDeleteDoc
 }) {
+  const [hoveredDocId, setHoveredDocId] = useState(null);
+
   if (caseDocs.length === 0) return null;
 
   return (
@@ -33,15 +35,18 @@ export default function BottomDocCarousel({
       {caseDocs.map(doc => {
         const isSelected = currentDoc?.id === doc.id;
         const isFlagged = doc.status === 'flagged' || doc.risk_level === 'CRITICAL';
+        const isHovered = hoveredDocId === doc.id;
 
         return (
           <div
             key={doc.id}
             id={`carousel-doc-${doc.id}`}
             onClick={() => onSelectDoc(doc)}
+            onMouseEnter={() => setHoveredDocId(doc.id)}
+            onMouseLeave={() => setHoveredDocId(null)}
             style={{
-              minWidth: '115px',
-              maxWidth: '125px',
+              minWidth: '120px',
+              maxWidth: '130px',
               height: '82px',
               backgroundColor: isSelected ? '#EFF6FF' : '#FFFFFF',
               border: isSelected 
@@ -59,15 +64,37 @@ export default function BottomDocCarousel({
               transition: 'all 0.15s ease',
               boxShadow: isSelected ? '0 2px 8px rgba(37, 99, 235, 0.15)' : 'none'
             }}
-            onMouseEnter={e => {
-              if (!isSelected) e.currentTarget.style.borderColor = '#94A3B8';
-            }}
-            onMouseLeave={e => {
-              if (!isSelected) {
-                e.currentTarget.style.borderColor = isFlagged ? '#FCA5A5' : '#E2E8F0';
-              }
-            }}
           >
+            {/* Delete Button (Visible on Hover or for non-empty doc) */}
+            {onDeleteDoc && isHovered && (
+              <button
+                title="Remove Document"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteDoc(doc.id);
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '-6px',
+                  left: '-6px',
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  backgroundColor: '#EF4444',
+                  color: '#FFFFFF',
+                  border: '1.5px solid #FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  zIndex: 20,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.2)'
+                }}
+              >
+                <Trash2 size={11} strokeWidth={2.5} />
+              </button>
+            )}
+
             {/* Status Badge in Top Right */}
             <div style={{ position: 'absolute', top: '5px', right: '5px', zIndex: 5 }}>
               {isFlagged ? (

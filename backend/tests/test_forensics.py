@@ -9,12 +9,23 @@ from backend.app.modules.metadata_forensics import analyze_metadata
 from backend.app.modules.visual_forensics import perform_ela, analyze_visual_forensics
 from backend.app.modules.ocr_semantic import analyze_ocr_and_semantics
 from backend.app.orchestrator import orchestrate_analysis
+from backend.app.generate_samples import generate_bank_statement_pdf, generate_other_samples
 
 SAMPLE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "sample_data")
+os.makedirs(SAMPLE_DIR, exist_ok=True)
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_samples():
+    path = os.path.join(SAMPLE_DIR, "US_Bank_Statement_Mar2024.pdf")
+    if not os.path.exists(path):
+        generate_bank_statement_pdf()
+        generate_other_samples()
 
 @pytest.fixture
 def bank_statement_bytes():
     path = os.path.join(SAMPLE_DIR, "US_Bank_Statement_Mar2024.pdf")
+    if not os.path.exists(path):
+        generate_bank_statement_pdf()
     with open(path, "rb") as f:
         return f.read()
 
@@ -26,9 +37,7 @@ def test_metadata_forensics(bank_statement_bytes):
     assert layer.layer_id == "metadata"
 
 def test_visual_ela_forensics():
-    # Create test image with uniform background and spliced patch
     img = Image.new("RGB", (300, 300), color=(255, 255, 255))
-    # Paste high contrast rectangle
     patch = Image.new("RGB", (60, 40), color=(20, 50, 180))
     img.paste(patch, (100, 100))
     

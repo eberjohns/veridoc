@@ -1,71 +1,46 @@
 import React from 'react';
 import {
-  Activity,
   Flame,
   Copy,
-  Files,
-  Scissors,
   FileCode,
   Type,
   Calculator,
   RotateCcw
 } from 'lucide-react';
 
-const LAYER_CONFIGS = [
-  {
-    id: 'noise',
-    name: 'Noise Analysis',
-    desc: 'Sensor pattern inconsistencies',
-    color: '#64748B',
-    icon: Activity
-  },
+const STREAMLINED_LAYERS = [
   {
     id: 'ela',
-    name: 'ELA',
-    subtitle: 'Error Level Analysis',
-    desc: 'Error Level Analysis',
+    name: 'Visual ELA & Noise',
+    desc: 'Compression error & pixel variance heatmap',
     color: '#F97316',
     icon: Flame
   },
   {
-    id: 'cloning',
-    name: 'Cloning Detection',
-    desc: 'Detects cloned regions',
-    color: '#6366F1',
+    id: 'copy_paste',
+    name: 'Copy-Paste & Cloning',
+    desc: 'Duplicated blocks & cloned regions',
+    color: '#06B6D4',
     icon: Copy
   },
   {
-    id: 'copy_paste',
-    name: 'Copy-Paste',
-    desc: 'Detects repeated content',
-    color: '#06B6D4',
-    icon: Files
-  },
-  {
-    id: 'splicing',
-    name: 'Splicing Detection',
-    desc: 'Detects spliced regions',
-    color: '#10B981',
-    icon: Scissors
-  },
-  {
     id: 'metadata',
-    name: 'Metadata Analysis',
-    desc: 'File & author metadata',
+    name: 'Metadata & Software Audit',
+    desc: 'Editor tags, timestamps & revisions',
     color: '#8B5CF6',
     icon: FileCode
   },
   {
     id: 'font',
-    name: 'Font & Style Anomalies',
-    desc: 'Inconsistent fonts & styling',
+    name: 'Font & Typography',
+    desc: 'Mismatched fonts & kerning deviations',
     color: '#EC4899',
     icon: Type
   },
   {
     id: 'math',
-    name: 'Math Verification',
-    desc: 'Calculations & consistency',
+    name: 'Math & Logic Verification',
+    desc: 'Arithmetic & formula consistency',
     color: '#EF4444',
     icon: Calculator
   }
@@ -98,17 +73,17 @@ export default function Zone1Layers({
         borderBottom: '1px solid #F1F5F9'
       }}>
         <h2 style={{
-          fontSize: '12px',
+          fontSize: '11.5px',
           fontWeight: '700',
-          letterSpacing: '0.05em',
+          letterSpacing: '0.06em',
           color: '#64748B',
           textTransform: 'uppercase'
         }}>
-          Layers
+          Forensic Layers
         </h2>
       </div>
 
-      {/* Toggles List */}
+      {/* Streamlined Toggles List */}
       <div style={{
         flex: 1,
         padding: '12px 14px',
@@ -116,10 +91,9 @@ export default function Zone1Layers({
         flexDirection: 'column',
         gap: '8px'
       }}>
-        {LAYER_CONFIGS.map(layer => {
+        {STREAMLINED_LAYERS.map(layer => {
           const isActive = !!activeLayers[layer.id];
           const Icon = layer.icon;
-          const isFlagged = analysisData?.layers?.[layer.id]?.flagged;
 
           return (
             <div
@@ -146,28 +120,29 @@ export default function Zone1Layers({
                 if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
                 <div style={{
-                  width: '30px',
-                  height: '30px',
+                  width: '32px',
+                  height: '32px',
                   borderRadius: '6px',
                   backgroundColor: isActive ? `${layer.color}15` : '#F1F5F9',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: isActive ? layer.color : '#94A3B8',
-                  transition: 'all 0.18s ease'
+                  transition: 'all 0.18s ease',
+                  flexShrink: 0
                 }}>
                   <Icon size={16} strokeWidth={isActive ? 2.3 : 1.8} />
                 </div>
-                <div>
+                <div style={{ overflow: 'hidden' }}>
                   <div style={{
                     fontSize: '13px',
                     fontWeight: isActive ? '600' : '500',
                     color: isActive ? '#0F172A' : '#334155',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
                   }}>
                     {layer.name}
                   </div>
@@ -175,7 +150,6 @@ export default function Zone1Layers({
                     fontSize: '11px',
                     color: '#94A3B8',
                     marginTop: '1px',
-                    maxWidth: '135px',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap'
@@ -193,7 +167,9 @@ export default function Zone1Layers({
                 backgroundColor: isActive ? '#2563EB' : '#CBD5E1',
                 padding: '2px',
                 position: 'relative',
-                transition: 'background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                flexShrink: 0,
+                transition: 'background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                marginLeft: '8px'
               }}>
                 <div style={{
                   width: '16px',
@@ -234,7 +210,6 @@ export default function Zone1Layers({
             </span>
           </div>
 
-          {/* Slider input */}
           <input
             id="layer-opacity-slider"
             type="range"

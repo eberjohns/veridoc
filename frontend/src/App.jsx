@@ -10,6 +10,7 @@ import { DEFAULT_CASE_DOCS, DEFAULT_BANK_STATEMENT_ANALYSIS } from './data/mockD
 import { 
   fetchDocuments, 
   fetchDocumentById, 
+  deleteDocumentById,
   fetchSampleDocs, 
   fetchSampleAnalysis, 
   fetchHealth 
@@ -20,16 +21,13 @@ export default function App() {
   const [currentDoc, setCurrentDoc] = useState(null);
   const [analysisData, setAnalysisData] = useState(null);
 
-  // Zone 1 Layer Toggles & Opacity
+  // 5 Streamlined Non-Redundant Forensic Layer Toggles & Opacity
   const [activeLayers, setActiveLayers] = useState({
-    noise: false,
-    ela: true,
-    cloning: false,
-    copy_paste: true,
-    splicing: false,
-    metadata: false,
-    font: false,
-    math: true
+    ela: true,           // Visual ELA & Sensor Noise Variance
+    copy_paste: true,    // Copy-Paste & Cloned Regions
+    metadata: false,     // Metadata, Software Signatures & Timestamps
+    font: false,         // Font, Typography & Kerning Deviations
+    math: true           // Math, Accounting & Formula Consistency
   });
   const [layerOpacity, setLayerOpacity] = useState(0.65);
 
@@ -133,6 +131,29 @@ export default function App() {
     }
   };
 
+  // Delete Document Handler
+  const handleDeleteDoc = async (docId) => {
+    try {
+      await deleteDocumentById(docId);
+    } catch (e) {
+      console.warn('Error deleting from server:', e);
+    }
+
+    const updated = caseDocs.filter(d => d.id !== docId);
+    setCaseDocs(updated);
+
+    if (currentDoc?.id === docId) {
+      if (updated.length > 0) {
+        handleSelectDoc(updated[0]);
+      } else {
+        setCurrentDoc(null);
+        setAnalysisData(null);
+        localStorage.removeItem('veridoc_active_doc_id');
+        localStorage.removeItem('veridoc_show_samples');
+      }
+    }
+  };
+
   const handleToggleLayer = (layerId) => {
     setActiveLayers(prev => ({
       ...prev,
@@ -142,11 +163,8 @@ export default function App() {
 
   const handleResetLayers = () => {
     setActiveLayers({
-      noise: false,
       ela: false,
-      cloning: false,
       copy_paste: false,
-      splicing: false,
       metadata: false,
       font: false,
       math: false
@@ -192,6 +210,7 @@ export default function App() {
         currentDoc={currentDoc}
         caseDocs={caseDocs}
         onSelectDoc={handleSelectDoc}
+        onDeleteDoc={handleDeleteDoc}
         zoomLevel={zoomLevel}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
@@ -209,7 +228,7 @@ export default function App() {
         overflow: 'hidden',
         position: 'relative'
       }}>
-        {/* Zone 1: Left Controls & Layers */}
+        {/* Zone 1: Left Controls & Streamlined Layers */}
         <Zone1Layers
           activeLayers={activeLayers}
           onToggleLayer={handleToggleLayer}
@@ -245,16 +264,17 @@ export default function App() {
             onLoadSamples={loadSampleCases}
           />
 
-          {/* Bottom Document Dock */}
+          {/* Bottom Document Dock with Delete capability */}
           <BottomDocCarousel
             caseDocs={caseDocs}
             currentDoc={currentDoc}
             onSelectDoc={handleSelectDoc}
             onOpenUpload={() => setIsUploadOpen(true)}
+            onDeleteDoc={handleDeleteDoc}
           />
         </div>
 
-        {/* Zone 3: Right Auditor Panel (Spans full vertical height to bottom!) */}
+        {/* Zone 3: Right Auditor Panel */}
         <Zone3Auditor
           analysisData={analysisData}
           hoveredFindingId={hoveredFindingId}
