@@ -1,0 +1,39 @@
+Antigravity Master Prompt: Veridoc Architecture
+System Overview
+"Veridoc" is an automated document fraud detection and verification system. The architecture relies on decoupled Python micro-modules for forensics, orchestrated by a FastAPI backend, and visualized through a React-based 3-Zone Master-Detail frontend.
+
+Phase 1: Project Initialization & API Routing
+
+Action: Initialize a monorepo with a FastAPI backend and a React (Next.js) frontend.
+
+Backend Core: Build a POST /analyze endpoint that accepts multipart file uploads (PDF, PNG, JPG).
+
+Orchestration: Configure the endpoint to route the uploaded file asynchronously to three separate internal modules (Metadata, Visual, OCR) and aggregate their outputs into a standardized JSON response containing sub-scores, rationales, and normalized bounding box coordinates.
+
+Testing: Use pytest to mock file uploads and validate the JSON schema of the aggregated response.
+
+Phase 2: Forensic Micro-Modules (Python)
+
+Module 1 - Metadata Check: Use PyMuPDF (fitz) and Pillow to extract embedded file dictionaries. Write logic to flag anomalies (e.g., creation dates newer than modification dates, or editing software tags like "Photoshop").
+
+Module 2 - Visual Forensics (ELA): Use OpenCV and NumPy to implement Error Level Analysis. Resave the input image at a known quality (e.g., 90%), calculate the absolute difference against the original, and generate a heatmap array. Return bounding box coordinates (as percentages of total width/height) for high-variance areas.
+
+Module 3 - OCR & Semantic Validation: Use EasyOCR to extract text and spatial coordinates. Write a validation script to parse currency and numerical values, checking for mathematical consistency (e.g., Subtotal + Tax = Total).
+
+Testing: Write dedicated unit tests for each module using simulated data arrays and mock images.
+
+Phase 3: Frontend Development (React)
+
+Action: Build the 3-Zone Master-Detail layout.
+
+Zone 1 (Left 15% - Controls): Create a vertical stack of toggle switches linked to global state (e.g., ELA Layer, Math Checks).
+
+Zone 2 (Center 60% - Canvas): Implement a central document viewer. When toggles in Zone 1 are active, render colored SVG bounding boxes or heatmap overlays directly on top of the document using the percentage-based coordinates provided by the backend.
+
+Zone 3 (Right 25% - Auditor): Display an aggregate "Trust Score" and an accordion list of flagged anomalies. Implement a synchronized hover effect: hovering over a specific error in this panel must trigger an active state on the corresponding bounding box in Zone 2.
+
+Phase 4: Integration & E2E
+
+Action: Connect the frontend API client to the FastAPI backend.
+
+Validation: Write automated tests to simulate a complete user flow: uploading a tampered document, verifying the background processing, and confirming the accurate rendering of the forensic layers on the canvas.
