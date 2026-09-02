@@ -10,8 +10,7 @@ import { DEFAULT_CASE_DOCS, DEFAULT_BANK_STATEMENT_ANALYSIS } from './data/mockD
 import { 
   fetchDocuments, 
   fetchDocumentById, 
-  deleteDocumentById,
-  fetchSampleDocs, 
+  deleteDocumentById, 
   fetchSampleAnalysis, 
   fetchHealth 
 } from './services/api';
@@ -21,13 +20,14 @@ export default function App() {
   const [currentDoc, setCurrentDoc] = useState(null);
   const [analysisData, setAnalysisData] = useState(null);
 
-  // 5 Streamlined Non-Redundant Forensic Layer Toggles & Opacity
+  // 6 Core Non-Redundant Forensic Checks & Opacity
   const [activeLayers, setActiveLayers] = useState({
-    ela: true,           // Visual ELA & Sensor Noise Variance
-    copy_paste: true,    // Copy-Paste & Cloned Regions
-    metadata: false,     // Metadata, Software Signatures & Timestamps
-    font: false,         // Font, Typography & Kerning Deviations
-    math: true           // Math, Accounting & Formula Consistency
+    metadata: false,       // Metadata & Software Audit
+    copy_paste: true,      // Copy-Paste Check (Within Document)
+    splicing: true,        // Splicing Check (Visual ELA & Patch Borders)
+    math: true,            // Math Check (Arithmetic & Formula Consistency)
+    font: false,           // Font Mismatch Check (Kerning & Typography)
+    cross_reference: true  // Cross-Reference Check (Cross-Document Matching)
   });
   const [layerOpacity, setLayerOpacity] = useState(0.65);
 
@@ -43,7 +43,7 @@ export default function App() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [backendConnected, setBackendConnected] = useState(false);
 
-  // Load persistent uploaded documents from backend or localStorage on mount
+  // Load persistent uploaded documents list from backend on mount (without auto-selecting)
   useEffect(() => {
     async function initWorkspace() {
       const health = await fetchHealth();
@@ -51,37 +51,38 @@ export default function App() {
         setBackendConnected(true);
       }
 
-      // Fetch saved documents from server
+      // Clear any auto-load preferences
+      localStorage.removeItem('veridoc_active_doc_id');
+      localStorage.removeItem('veridoc_show_samples');
+
+      // Fetch saved uploaded documents list from server (dock only)
       const docRes = await fetchDocuments();
       if (docRes && docRes.documents && docRes.documents.length > 0) {
         setCaseDocs(docRes.documents);
-        
-        // Restore last selected document from localStorage or pick first
-        const savedDocId = localStorage.getItem('veridoc_active_doc_id');
-        const activeItem = docRes.documents.find(d => d.id === savedDocId) || docRes.documents[0];
-        
-        if (activeItem) {
-          handleSelectDoc(activeItem);
-        }
       } else {
-        // No uploaded files yet -> Check if user had selected sample before
-        const samplePreference = localStorage.getItem('veridoc_show_samples');
-        if (samplePreference === 'true') {
-          loadSampleCases();
-        }
+        setCaseDocs([]);
       }
+      // Keep canvas and auditor strictly in empty state until user chooses a document
+      setCurrentDoc(null);
+      setAnalysisData(null);
     }
     initWorkspace();
   }, []);
 
+  // Explicit user action to load sample case files
   const loadSampleCases = async () => {
-    localStorage.setItem('veridoc_show_samples', 'true');
     setCaseDocs(DEFAULT_CASE_DOCS);
     handleSelectDoc(DEFAULT_CASE_DOCS[0]);
   };
 
   // Handle document selection
   const handleSelectDoc = async (doc) => {
+    if (!doc) {
+      setCurrentDoc(null);
+      setAnalysisData(null);
+      return;
+    }
+
     setCurrentDoc(doc);
     localStorage.setItem('veridoc_active_doc_id', doc.id);
     
@@ -163,17 +164,18 @@ export default function App() {
 
   const handleResetLayers = () => {
     setActiveLayers({
-      ela: false,
-      copy_paste: false,
       metadata: false,
+      copy_paste: false,
+      splicing: false,
+      math: false,
       font: false,
-      math: false
+      cross_reference: false
     });
     setLayerOpacity(0.65);
   };
 
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(3.0, +(prev + 0.1).toFixed(2)));
-  const handleZoomOut = () => setZoomLevel(prev => Math.max(0.4, +(prev - 0.1).toFixed(2)));
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(4.0, +(prev + 0.1).toFixed(2)));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(0.3, +(prev - 0.1).toFixed(2)));
   const handleResetZoom = () => setZoomLevel(1.0);
 
   const handleUploadComplete = (newAnalysis, uploadedFile) => {
@@ -228,8 +230,9 @@ export default function App() {
         overflow: 'hidden',
         position: 'relative'
       }}>
-        {/* Zone 1: Left Controls & Streamlined Layers */}
+        {/* Zone 1: Left Controls & 6 Forensic Checks */}
         <Zone1Layers
+          currentDoc={currentDoc}
           activeLayers={activeLayers}
           onToggleLayer={handleToggleLayer}
           layerOpacity={layerOpacity}
@@ -264,7 +267,7 @@ export default function App() {
             onLoadSamples={loadSampleCases}
           />
 
-          {/* Bottom Document Dock with Delete capability */}
+          {/* Bottom Document Dock */}
           <BottomDocCarousel
             caseDocs={caseDocs}
             currentDoc={currentDoc}
@@ -276,6 +279,7 @@ export default function App() {
 
         {/* Zone 3: Right Auditor Panel */}
         <Zone3Auditor
+          currentDoc={currentDoc}
           analysisData={analysisData}
           hoveredFindingId={hoveredFindingId}
           onHoverFinding={setHoveredFindingId}

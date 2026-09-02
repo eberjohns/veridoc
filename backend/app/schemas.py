@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 class BoundingBox(BaseModel):
     id: Optional[str] = None
+    page: Optional[int] = 1
     x: float = Field(..., description="X coordinate as a percentage (0-100) of document width")
     y: float = Field(..., description="Y coordinate as a percentage (0-100) of document height")
     width: float = Field(..., description="Width as a percentage (0-100) of document width")
@@ -15,10 +16,11 @@ class BoundingBox(BaseModel):
 
 class Finding(BaseModel):
     id: str
-    layer_type: str  # 'math', 'copy_paste', 'ela', 'metadata', 'font', 'noise', 'splicing', 'cloning'
+    layer_type: str  # 'math', 'copy_paste', 'splicing', 'metadata', 'font', 'cross_reference'
     severity: str    # 'High', 'Medium', 'Low', 'Critical'
     title: str
     description: str
+    page: Optional[int] = 1
     expected_value: Optional[str] = None
     found_value: Optional[str] = None
     confidence: float = 0.95
@@ -37,6 +39,13 @@ class LayerOutput(BaseModel):
     findings_count: int = 0
     heatmap_data_url: Optional[str] = None
     overlay_items: List[BoundingBox] = []
+
+class PageInfo(BaseModel):
+    page_number: int
+    preview_image_url: str
+    width: int
+    height: int
+    heatmap_data_url: Optional[str] = None
 
 class DocumentMetadata(BaseModel):
     filename: str
@@ -62,4 +71,5 @@ class AnalyzeResponse(BaseModel):
     findings: List[Finding] = []
     layers: Dict[str, LayerOutput] = {}
     preview_image_url: Optional[str] = None
+    pages: List[PageInfo] = []
     processed_at: str

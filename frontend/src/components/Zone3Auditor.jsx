@@ -12,10 +12,14 @@ import {
   Type,
   ExternalLink,
   History,
-  AlertCircle
+  AlertCircle,
+  FileSearch,
+  Scissors,
+  Inbox
 } from 'lucide-react';
 
 export default function Zone3Auditor({
+  currentDoc,
   analysisData,
   hoveredFindingId,
   onHoverFinding,
@@ -27,13 +31,57 @@ export default function Zone3Auditor({
   const [expandedCards, setExpandedCards] = useState({
     'finding-cp-1': true,
     'finding-math-1': true,
-    'finding-ela-1': true
+    'finding-splicing-1': true,
+    'finding-ela-1': true,
+    'finding-cross-1': true
   });
 
-  const trustScore = analysisData?.trust_score ?? 98;
-  const riskLevel = analysisData?.risk_level ?? 'VERIFIED';
-  const summary = analysisData?.summary ?? 'No forensic anomalies or tampering detected.';
-  const findings = analysisData?.findings ?? [];
+  // Strict check: If no document is selected or analysis data is missing, render clean empty state
+  if (!currentDoc || !analysisData || !analysisData.trust_score && analysisData.trust_score !== 0) {
+    return (
+      <aside style={{
+        width: '350px',
+        minWidth: '330px',
+        maxWidth: '400px',
+        height: '100%',
+        backgroundColor: '#FFFFFF',
+        borderLeft: '1px solid #E2E8F0',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '30px 24px',
+        textAlign: 'center',
+        userSelect: 'none',
+        color: '#64748B'
+      }}>
+        <div style={{
+          width: '52px',
+          height: '52px',
+          borderRadius: '12px',
+          backgroundColor: '#F1F5F9',
+          color: '#94A3B8',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '14px'
+        }}>
+          <Inbox size={26} />
+        </div>
+        <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1E293B', marginBottom: '6px' }}>
+          No Document Selected
+        </h3>
+        <p style={{ fontSize: '12px', color: '#94A3B8', lineHeight: '1.5', maxWidth: '240px' }}>
+          Upload a document to view its aggregate Trust Score, risk level, and detailed forensic findings.
+        </p>
+      </aside>
+    );
+  }
+
+  const trustScore = analysisData.trust_score;
+  const riskLevel = analysisData.risk_level || 'VERIFIED';
+  const summary = analysisData.summary || 'Document integrity analysis complete.';
+  const findings = analysisData.findings || [];
 
   const toggleExpand = (id) => {
     setExpandedCards(prev => ({
@@ -71,8 +119,11 @@ export default function Zone3Auditor({
         return <span style={{ color: '#EF4444', fontWeight: 'bold' }}>Σ</span>;
       case 'copy_paste':
         return <Copy size={15} color="#06B6D4" />;
+      case 'splicing':
       case 'ela':
-        return <Flame size={15} color="#F97316" />;
+        return <Scissors size={15} color="#F97316" />;
+      case 'cross_reference':
+        return <FileSearch size={15} color="#3B82F6" />;
       case 'metadata':
         return <FileCode size={15} color="#8B5CF6" />;
       case 'font':
@@ -191,7 +242,7 @@ export default function Zone3Auditor({
         </p>
       </div>
 
-      {/* 2. TAB SWITCHER (FINDINGS vs HISTORY) */}
+      {/* 2. TAB SWITCHER (FINDINGS vs METADATA & HISTORY) */}
       <div style={{
         display: 'flex',
         borderBottom: '1px solid #E2E8F0',
@@ -239,7 +290,7 @@ export default function Zone3Auditor({
         </button>
       </div>
 
-      {/* 3. FINDINGS LIST - Smooth Non-Squished List */}
+      {/* 3. FINDINGS LIST */}
       <div style={{
         padding: '14px',
         display: 'flex',
@@ -327,7 +378,7 @@ export default function Zone3Auditor({
                     </div>
                   </div>
 
-                  {/* Expanded Body (Never squished) */}
+                  {/* Expanded Body */}
                   {isExpanded && (
                     <div style={{
                       padding: '0 12px 12px 12px',
@@ -365,7 +416,7 @@ export default function Zone3Auditor({
                         </div>
                       )}
 
-                      {/* Copy-Paste Source Document */}
+                      {/* Copy-Paste or Cross-Reference Source Document */}
                       {finding.source_doc && (
                         <div style={{
                           backgroundColor: '#F8FAFC',

@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "id": "doc-1ec559c7",
+    "filename": "SGS_Field_Tracker_Internship_Work_Register_Draft.pdf",
+    "title": "SGS_Field_Tracker_Internship_Work_Register_Draft.pdf",
+    "status": "flagged",
+    "risk_level": "CRITICAL",
+    "trust_score": 23,
+    "findings_count": 2,
+    "type": "uploaded",
+    "filesize_bytes": 40184,
+    "uploaded_at": "2026-09-02T17:04:27.841476+00:00"
+  }
+]

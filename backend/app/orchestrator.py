@@ -6,10 +6,10 @@ from typing import Dict, List, Tuple
 from PIL import Image
 
 from .schemas import (
-    AnalyzeResponse, Finding, LayerOutput, DocumentMetadata, BoundingBox
+    AnalyzeResponse, Finding, LayerOutput, DocumentMetadata, BoundingBox, PageInfo
 )
 from .modules.metadata_forensics import analyze_metadata
-from .modules.visual_forensics import render_document_to_image, analyze_visual_forensics
+from .modules.visual_forensics import render_all_document_pages, analyze_visual_forensics, perform_ela
 from .modules.ocr_semantic import analyze_ocr_and_semantics
 
 def calculate_trust_score(findings: List[Finding]) -> Tuple[int, str, str]:
@@ -54,23 +54,43 @@ def sort_findings(findings: List[Finding]) -> List[Finding]:
 
 async def orchestrate_analysis(file_bytes: bytes, filename: str, case_id: str = "Fraud Investigation #1047") -> AnalyzeResponse:
     """
-    Orchestrates Module 1 (Metadata), Module 2 (Visual/ELA), and Module 3 (OCR/Math),
+    Orchestrates Module 1 (Metadata), Module 2 (Visual/ELA across all pages), and Module 3 (OCR/Math),
     aggregating findings and bounding box coordinates into standardized API response.
     """
     doc_id = f"doc-{uuid.uuid4().hex[:8]}"
     
-    # 1. Render base image for preview and visual forensics
-    pil_img = render_document_to_image(file_bytes, filename)
-    buf = io.BytesIO()
-    # Save a compressed preview
-    pil_img.save(buf, format="JPEG", quality=85)
-    preview_url = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
+    # 1. Render all pages of the document
+    page_images = render_all_document_pages(file_bytes, filename)
+    pages_info: List[PageInfo] = []
+    
+    primary_img = page_images[0]
+    
+    # Generate page data for each page
+    for idx, p_img in enumerate(page_images):
+        p_buf = io.BytesIO()
+        p_img.save(p_buf, format="JPEG", quality=85)
+        p_url = "data:image/jpeg;base64," + base64.b64encode(p_buf.getvalue()).decode("utf-8")
+        
+        # Also generate ELA heatmap for page
+        _, p_heatmap, _ = perform_ela(p_img)
+        
+        pages_info.append(PageInfo(
+            page_number=idx + 1,
+            preview_image_url=p_url,
+            width=p_img.width,
+            height=p_img.height,
+            heatmap_data_url=p_heatmap
+        ))
+
+    # Preview image is page 1 image
+    preview_url = pages_info[0].preview_image_url if pages_info else None
 
     # 2. Execute Module 1: Metadata Check
     doc_meta, meta_findings, meta_layer = analyze_metadata(file_bytes, filename)
+    doc_meta.page_count = len(page_images)
 
-    # 3. Execute Module 2: Visual & ELA Forensics
-    visual_layers, visual_findings = analyze_visual_forensics(pil_img)
+    # 3. Execute Module 2: Visual & ELA Forensics (on primary page)
+    visual_layers, visual_findings = analyze_visual_forensics(primary_img)
 
     # 4. Execute Module 3: OCR & Semantic Math Engine
     ocr_layers, ocr_findings = analyze_ocr_and_semantics(file_bytes, filename)
@@ -84,28 +104,14 @@ async def orchestrate_analysis(file_bytes: bytes, filename: str, case_id: str = 
     # Sort findings by severity
     sorted_findings = sort_findings(all_findings)
 
-    # 6. Merge all layers
-    all_layers: Dict[str, LayerOutput] = {
-        "noise": visual_layers.get("noise"),
-        "ela": visual_layers.get("ela"),
-        "cloning": visual_layers.get("cloning"),
-        "copy_paste": ocr_layers.get("copy_paste", visual_layers.get("copy_paste")),
-        "splicing": visual_layers.get("splicing"),
-        "metadata": meta_layer,
-        "font": ocr_layers.get("font"),
-        "math": ocr_layers.get("math"),
-    }
-
-    # Clean None values in layers
-    cleaned_layers = {k: v for k, v in all_layers.items() if v is not None}
-
-    # 7. Calculate Trust Score and Risk
+    # 6. Calculate aggregate Trust Score & Risk Level
     trust_score, risk_level, summary = calculate_trust_score(sorted_findings)
 
-    # For the mock bank statement, align score precisely to 24% as requested in mockup
-    if "us_bank" in filename.lower() or "statement" in filename.lower():
-        trust_score = 24
-        risk_level = "CRITICAL"
+    # 7. Merge all layers
+    combined_layers: Dict[str, LayerOutput] = {}
+    combined_layers.update(visual_layers)
+    combined_layers.update(ocr_layers)
+    combined_layers["metadata"] = meta_layer
 
     return AnalyzeResponse(
         document_id=doc_id,
@@ -116,7 +122,8 @@ async def orchestrate_analysis(file_bytes: bytes, filename: str, case_id: str = 
         summary=summary,
         metadata=doc_meta,
         findings=sorted_findings,
-        layers=cleaned_layers,
+        layers=combined_layers,
         preview_image_url=preview_url,
+        pages=pages_info,
         processed_at=datetime.now(timezone.utc).isoformat()
     )
