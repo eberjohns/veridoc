@@ -5,17 +5,39 @@ export async function fetchHealth() {
     const res = await fetch(`${API_BASE_URL}/health`);
     return await res.json();
   } catch (err) {
-    console.warn('Backend offline or unreachable, using client state:', err);
+    console.warn('Backend offline or unreachable:', err);
     return null;
   }
 }
 
-export async function fetchCaseDetails(caseId = 'Fraud Investigation #1047') {
+export async function fetchDocuments() {
   try {
-    const res = await fetch(`${API_BASE_URL}/cases/${encodeURIComponent(caseId)}`);
+    const res = await fetch(`${API_BASE_URL}/documents`);
     if (res.ok) return await res.json();
   } catch (err) {
-    console.warn('Falling back to default case details');
+    console.warn('Could not fetch documents:', err);
+  }
+  return null;
+}
+
+export async function fetchDocumentById(docId) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(docId)}`);
+    if (res.ok) return await res.json();
+  } catch (err) {
+    console.warn(`Could not fetch document ${docId}:`, err);
+  }
+  return null;
+}
+
+export async function deleteDocumentById(docId) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(docId)}`, {
+      method: 'DELETE'
+    });
+    if (res.ok) return await res.json();
+  } catch (err) {
+    console.warn(`Could not delete document ${docId}:`, err);
   }
   return null;
 }

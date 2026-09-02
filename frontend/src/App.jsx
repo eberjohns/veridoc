@@ -7,12 +7,18 @@ import BottomDocCarousel from './components/BottomDocCarousel';
 import UploadModal from './components/UploadModal';
 
 import { DEFAULT_CASE_DOCS, DEFAULT_BANK_STATEMENT_ANALYSIS } from './data/mockData';
-import { fetchSampleAnalysis, fetchHealth } from './services/api';
+import { 
+  fetchDocuments, 
+  fetchDocumentById, 
+  fetchSampleDocs, 
+  fetchSampleAnalysis, 
+  fetchHealth 
+} from './services/api';
 
 export default function App() {
-  const [caseDocs, setCaseDocs] = useState(DEFAULT_CASE_DOCS);
-  const [currentDoc, setCurrentDoc] = useState(DEFAULT_CASE_DOCS[0]);
-  const [analysisData, setAnalysisData] = useState(DEFAULT_BANK_STATEMENT_ANALYSIS);
+  const [caseDocs, setCaseDocs] = useState([]);
+  const [currentDoc, setCurrentDoc] = useState(null);
+  const [analysisData, setAnalysisData] = useState(null);
 
   // Zone 1 Layer Toggles & Opacity
   const [activeLayers, setActiveLayers] = useState({
@@ -23,7 +29,7 @@ export default function App() {
     splicing: false,
     metadata: false,
     font: false,
-    math: false
+    math: true
   });
   const [layerOpacity, setLayerOpacity] = useState(0.65);
 
@@ -39,75 +45,84 @@ export default function App() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [backendConnected, setBackendConnected] = useState(false);
 
-  // Check backend health on mount
+  // Load persistent uploaded documents from backend or localStorage on mount
   useEffect(() => {
-    fetchHealth().then(res => {
-      if (res && res.status === 'ok') {
+    async function initWorkspace() {
+      const health = await fetchHealth();
+      if (health && health.status === 'ok') {
         setBackendConnected(true);
       }
-    });
+
+      // Fetch saved documents from server
+      const docRes = await fetchDocuments();
+      if (docRes && docRes.documents && docRes.documents.length > 0) {
+        setCaseDocs(docRes.documents);
+        
+        // Restore last selected document from localStorage or pick first
+        const savedDocId = localStorage.getItem('veridoc_active_doc_id');
+        const activeItem = docRes.documents.find(d => d.id === savedDocId) || docRes.documents[0];
+        
+        if (activeItem) {
+          handleSelectDoc(activeItem);
+        }
+      } else {
+        // No uploaded files yet -> Check if user had selected sample before
+        const samplePreference = localStorage.getItem('veridoc_show_samples');
+        if (samplePreference === 'true') {
+          loadSampleCases();
+        }
+      }
+    }
+    initWorkspace();
   }, []);
 
-  // Handle document selection from dropdown or bottom carousel
+  const loadSampleCases = async () => {
+    localStorage.setItem('veridoc_show_samples', 'true');
+    setCaseDocs(DEFAULT_CASE_DOCS);
+    handleSelectDoc(DEFAULT_CASE_DOCS[0]);
+  };
+
+  // Handle document selection
   const handleSelectDoc = async (doc) => {
     setCurrentDoc(doc);
+    localStorage.setItem('veridoc_active_doc_id', doc.id);
     
-    // Try fetching live analysis from backend if available
+    // Fetch live persistent analysis from backend
     try {
-      const liveData = await fetchSampleAnalysis(doc.filename);
-      if (liveData) {
-        setAnalysisData(liveData);
+      const data = await fetchDocumentById(doc.id || doc.filename);
+      if (data) {
+        setAnalysisData(data);
         return;
       }
     } catch (e) {
-      console.warn('Using client data for document');
+      console.warn('Could not fetch persistent document analysis:', e);
     }
 
-    // Default mock behavior for other documents
+    // Try sample docs endpoint if it's a sample file
+    try {
+      const sampleData = await fetchSampleAnalysis(doc.filename);
+      if (sampleData) {
+        setAnalysisData(sampleData);
+        return;
+      }
+    } catch (e) {
+      console.warn('Could not fetch sample analysis:', e);
+    }
+
+    // Offline fallback for demo files
     if (doc.filename === 'US_Bank_Statement_Mar2024.pdf') {
       setAnalysisData(DEFAULT_BANK_STATEMENT_ANALYSIS);
-    } else if (doc.filename === 'invoice_3.pdf') {
-      setAnalysisData({
-        document_id: doc.id,
-        filename: doc.filename,
-        case_id: "Fraud Investigation #1047",
-        trust_score: 31,
-        risk_level: "CRITICAL",
-        summary: "Source document identified with duplicate line items transplant.",
-        metadata: {
-          filename: doc.filename,
-          filesize_bytes: 231900,
-          mime_type: "application/pdf",
-          page_count: 1,
-          has_anomalies: true,
-          anomalies: ["Canva PDF generator metadata signature"]
-        },
-        findings: [
-          {
-            id: "finding-inv-1",
-            layer_type: "copy_paste",
-            severity: "High",
-            title: "Source Document Match",
-            description: "Invoice #INV-0021 contains identical amount $2,450.00 transplanted onto the bank statement.",
-            confidence: 0.96,
-            bounding_boxes: []
-          }
-        ],
-        layers: {}
-      });
     } else {
-      // Verified clean documents
       setAnalysisData({
         document_id: doc.id,
         filename: doc.filename,
-        case_id: "Fraud Investigation #1047",
-        trust_score: doc.trust_score,
-        risk_level: "VERIFIED",
-        summary: "Document integrity verified. No forensic anomalies or tampering detected.",
+        trust_score: doc.trust_score || 95,
+        risk_level: doc.risk_level || 'VERIFIED',
+        summary: 'Document verified. No forensic anomalies or tampering detected.',
         metadata: {
           filename: doc.filename,
-          filesize_bytes: 312000,
-          mime_type: "application/pdf",
+          filesize_bytes: doc.filesize_bytes || 204800,
+          mime_type: 'application/pdf',
           page_count: 1,
           has_anomalies: false,
           anomalies: []
@@ -139,8 +154,8 @@ export default function App() {
     setLayerOpacity(0.65);
   };
 
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(2.5, +(prev + 0.1).toFixed(2)));
-  const handleZoomOut = () => setZoomLevel(prev => Math.max(0.5, +(prev - 0.1).toFixed(2)));
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(3.0, +(prev + 0.1).toFixed(2)));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(0.4, +(prev - 0.1).toFixed(2)));
   const handleResetZoom = () => setZoomLevel(1.0);
 
   const handleUploadComplete = (newAnalysis, uploadedFile) => {
@@ -152,12 +167,15 @@ export default function App() {
       risk_level: newAnalysis.risk_level,
       trust_score: newAnalysis.trust_score,
       findings_count: newAnalysis.findings.length,
-      type: 'uploaded'
+      type: 'uploaded',
+      filesize_bytes: uploadedFile.size,
+      uploaded_at: newAnalysis.processed_at
     };
 
-    setCaseDocs(prev => [newDocItem, ...prev]);
+    setCaseDocs(prev => [newDocItem, ...prev.filter(d => d.id !== newDocItem.id)]);
     setCurrentDoc(newDocItem);
     setAnalysisData(newAnalysis);
+    localStorage.setItem('veridoc_active_doc_id', newDocItem.id);
   };
 
   return (
@@ -181,13 +199,13 @@ export default function App() {
         isPanMode={isPanMode}
         onTogglePanMode={() => setIsPanMode(prev => !prev)}
         onOpenUpload={() => setIsUploadOpen(true)}
-        backendConnected={backendConnected}
       />
 
-      {/* Main 3-Zone Master Detail Workspace */}
+      {/* Main Forensic Workspace */}
       <div style={{
         display: 'flex',
         flex: 1,
+        minHeight: 0,
         overflow: 'hidden',
         position: 'relative'
       }}>
@@ -201,21 +219,42 @@ export default function App() {
           analysisData={analysisData}
         />
 
-        {/* Zone 2: Center Document Canvas & Overlays */}
-        <Zone2Canvas
-          currentDoc={currentDoc}
-          analysisData={analysisData}
-          activeLayers={activeLayers}
-          layerOpacity={layerOpacity}
-          zoomLevel={zoomLevel}
-          isPanMode={isPanMode}
-          hoveredFindingId={hoveredFindingId}
-          onHoverFinding={setHoveredFindingId}
-          selectedFindingId={selectedFindingId}
-          onSelectFinding={setSelectedFindingId}
-        />
+        {/* Center Column: Zone 2 Canvas + Bottom Document Carousel */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minWidth: 0,
+          height: '100%',
+          overflow: 'hidden'
+        }}>
+          {/* Zone 2: Document Canvas */}
+          <Zone2Canvas
+            currentDoc={currentDoc}
+            analysisData={analysisData}
+            activeLayers={activeLayers}
+            layerOpacity={layerOpacity}
+            zoomLevel={zoomLevel}
+            setZoomLevel={setZoomLevel}
+            isPanMode={isPanMode}
+            hoveredFindingId={hoveredFindingId}
+            onHoverFinding={setHoveredFindingId}
+            selectedFindingId={selectedFindingId}
+            onSelectFinding={setSelectedFindingId}
+            onOpenUpload={() => setIsUploadOpen(true)}
+            onLoadSamples={loadSampleCases}
+          />
 
-        {/* Zone 3: Right Auditor Panel */}
+          {/* Bottom Document Dock */}
+          <BottomDocCarousel
+            caseDocs={caseDocs}
+            currentDoc={currentDoc}
+            onSelectDoc={handleSelectDoc}
+            onOpenUpload={() => setIsUploadOpen(true)}
+          />
+        </div>
+
+        {/* Zone 3: Right Auditor Panel (Spans full vertical height to bottom!) */}
         <Zone3Auditor
           analysisData={analysisData}
           hoveredFindingId={hoveredFindingId}
@@ -229,15 +268,7 @@ export default function App() {
         />
       </div>
 
-      {/* Bottom Batch Document Carousel */}
-      <BottomDocCarousel
-        caseDocs={caseDocs}
-        currentDoc={currentDoc}
-        onSelectDoc={handleSelectDoc}
-        onOpenUpload={() => setIsUploadOpen(true)}
-      />
-
-      {/* Interactive Upload Modal */}
+      {/* Upload Modal */}
       <UploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}

@@ -3,34 +3,36 @@ import {
   FileText, 
   CheckCircle2, 
   AlertCircle, 
-  Plus, 
-  UserCheck, 
-  CreditCard 
+  Plus,
+  Trash2
 } from 'lucide-react';
 
 export default function BottomDocCarousel({
   caseDocs,
   currentDoc,
   onSelectDoc,
-  onOpenUpload
+  onOpenUpload,
+  onDeleteDoc
 }) {
+  if (caseDocs.length === 0) return null;
+
   return (
     <div style={{
-      height: '115px',
+      height: '105px',
       backgroundColor: '#FFFFFF',
       borderTop: '1px solid #E2E8F0',
       display: 'flex',
       alignItems: 'center',
       padding: '0 20px',
-      gap: '14px',
+      gap: '12px',
       overflowX: 'auto',
       userSelect: 'none',
-      zIndex: 40
+      zIndex: 30,
+      flexShrink: 0
     }}>
       {caseDocs.map(doc => {
         const isSelected = currentDoc?.id === doc.id;
-        const isFlagged = doc.status === 'flagged';
-        const isWarning = doc.id === 'doc-inv-003';
+        const isFlagged = doc.status === 'flagged' || doc.risk_level === 'CRITICAL';
 
         return (
           <div
@@ -40,12 +42,12 @@ export default function BottomDocCarousel({
             style={{
               minWidth: '115px',
               maxWidth: '125px',
-              height: '88px',
-              backgroundColor: isSelected ? '#F0F7FF' : '#FFFFFF',
+              height: '82px',
+              backgroundColor: isSelected ? '#EFF6FF' : '#FFFFFF',
               border: isSelected 
                 ? '2px solid #2563EB' 
-                : isWarning 
-                  ? '1.5px solid #EF4444' 
+                : isFlagged 
+                  ? '1.5px solid #FCA5A5' 
                   : '1px solid #E2E8F0',
               borderRadius: '8px',
               padding: '6px',
@@ -62,7 +64,7 @@ export default function BottomDocCarousel({
             }}
             onMouseLeave={e => {
               if (!isSelected) {
-                e.currentTarget.style.borderColor = isWarning ? '#EF4444' : '#E2E8F0';
+                e.currentTarget.style.borderColor = isFlagged ? '#FCA5A5' : '#E2E8F0';
               }
             }}
           >
@@ -70,23 +72,23 @@ export default function BottomDocCarousel({
             <div style={{ position: 'absolute', top: '5px', right: '5px', zIndex: 5 }}>
               {isFlagged ? (
                 <div style={{
-                  width: '16px',
-                  height: '16px',
+                  width: '15px',
+                  height: '15px',
                   borderRadius: '50%',
                   backgroundColor: '#EF4444',
                   color: '#FFFFFF',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '11px',
+                  fontSize: '10px',
                   fontWeight: 'bold'
                 }}>
                   !
                 </div>
               ) : (
                 <div style={{
-                  width: '16px',
-                  height: '16px',
+                  width: '15px',
+                  height: '15px',
                   borderRadius: '50%',
                   backgroundColor: '#10B981',
                   color: '#FFFFFF',
@@ -94,7 +96,7 @@ export default function BottomDocCarousel({
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <CheckCircle2 size={12} strokeWidth={3} />
+                  <CheckCircle2 size={11} strokeWidth={3} />
                 </div>
               )}
             </div>
@@ -112,22 +114,7 @@ export default function BottomDocCarousel({
               padding: '4px',
               overflow: 'hidden'
             }}>
-              {doc.type === 'id_card' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <div style={{ width: '18px', height: '22px', backgroundColor: '#CBD5E1', borderRadius: '2px' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <div style={{ width: '28px', height: '3px', backgroundColor: '#94A3B8', borderRadius: '1px' }} />
-                    <div style={{ width: '20px', height: '3px', backgroundColor: '#CBD5E1', borderRadius: '1px' }} />
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', width: '80%' }}>
-                  <div style={{ width: '50%', height: '4px', backgroundColor: isFlagged ? '#FCA5A5' : '#CBD5E1', borderRadius: '1px' }} />
-                  <div style={{ width: '100%', height: '3px', backgroundColor: '#E2E8F0', borderRadius: '1px' }} />
-                  <div style={{ width: '80%', height: '3px', backgroundColor: '#E2E8F0', borderRadius: '1px' }} />
-                  <div style={{ width: '90%', height: '3px', backgroundColor: '#E2E8F0', borderRadius: '1px' }} />
-                </div>
-              )}
+              <FileText size={18} color={isFlagged ? '#EF4444' : '#2563EB'} />
             </div>
 
             {/* Document Filename */}
@@ -153,14 +140,14 @@ export default function BottomDocCarousel({
         onClick={onOpenUpload}
         style={{
           minWidth: '105px',
-          height: '88px',
+          height: '82px',
           border: '1.5px dashed #CBD5E1',
           borderRadius: '8px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '6px',
+          gap: '4px',
           color: '#64748B',
           cursor: 'pointer',
           transition: 'all 0.15s ease',
@@ -177,8 +164,8 @@ export default function BottomDocCarousel({
           e.currentTarget.style.backgroundColor = '#FAFAFA';
         }}
       >
-        <Plus size={20} />
-        <span style={{ fontSize: '11px', fontWeight: '600' }}>Add Files</span>
+        <Plus size={18} />
+        <span style={{ fontSize: '11px', fontWeight: '600' }}>Add Document</span>
       </div>
     </div>
   );

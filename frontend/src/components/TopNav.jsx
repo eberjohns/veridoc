@@ -7,7 +7,6 @@ import {
   Plus, 
   Maximize2, 
   Hand, 
-  Bell, 
   Upload,
   CheckCircle2,
   AlertTriangle
@@ -23,8 +22,7 @@ export default function TopNav({
   onResetZoom,
   isPanMode,
   onTogglePanMode,
-  onOpenUpload,
-  backendConnected
+  onOpenUpload
 }) {
   return (
     <header style={{
@@ -34,7 +32,7 @@ export default function TopNav({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 16px',
+      padding: '0 20px',
       userSelect: 'none',
       zIndex: 50
     }}>
@@ -67,112 +65,120 @@ export default function TopNav({
         </div>
 
         {/* Vertical divider */}
-        <div style={{ height: '20px', width: '1px', backgroundColor: '#E2E8F0' }} />
+        {caseDocs.length > 0 && (
+          <div style={{ height: '20px', width: '1px', backgroundColor: '#E2E8F0' }} />
+        )}
 
-        {/* Document Selector Dropdown */}
-        <div style={{ position: 'relative' }}>
-          <button 
-            id="doc-selector-btn"
-            onClick={() => {
-              const el = document.getElementById('doc-dropdown-menu');
-              if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '6px 12px',
-              backgroundColor: '#F8FAFC',
-              border: '1px solid #E2E8F0',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: '500',
-              color: '#1E293B',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <div style={{
-              width: '20px',
-              height: '20px',
-              borderRadius: '4px',
-              backgroundColor: '#FEE2E2',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#DC2626'
-            }}>
-              <FileText size={12} strokeWidth={2.5} />
-            </div>
-            <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {currentDoc?.filename || 'Select Document'}
-            </span>
-            <ChevronDown size={14} color="#64748B" />
-          </button>
-
-          {/* Dropdown Menu */}
-          <div 
-            id="doc-dropdown-menu"
-            style={{
-              display: 'none',
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              marginTop: '4px',
-              width: '280px',
-              backgroundColor: '#FFFFFF',
-              border: '1px solid #E2E8F0',
-              borderRadius: '8px',
-              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-              zIndex: 100,
-              padding: '4px'
-            }}
-          >
-            <div style={{ padding: '6px 8px', fontSize: '11px', fontWeight: '600', color: '#94A3B8', textTransform: 'uppercase' }}>
-              Case Documents ({caseDocs.length})
-            </div>
-            {caseDocs.map(doc => (
-              <div
-                key={doc.id}
-                onClick={() => {
-                  onSelectDoc(doc);
-                  const el = document.getElementById('doc-dropdown-menu');
-                  if (el) el.style.display = 'none';
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  color: currentDoc?.id === doc.id ? '#2563EB' : '#1E293B',
-                  backgroundColor: currentDoc?.id === doc.id ? '#EFF6FF' : 'transparent',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.backgroundColor = currentDoc?.id === doc.id ? '#EFF6FF' : '#F8FAFC'}
-                onMouseLeave={e => e.currentTarget.style.backgroundColor = currentDoc?.id === doc.id ? '#EFF6FF' : 'transparent'}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <FileText size={14} color={doc.status === 'flagged' ? '#DC2626' : '#10B981'} />
-                  <span style={{ fontSize: '12px' }}>{doc.filename}</span>
-                </div>
-                {doc.status === 'flagged' ? (
-                  <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#FEE2E2', color: '#DC2626', borderRadius: '10px', fontWeight: '600' }}>
-                    {doc.trust_score}%
-                  </span>
-                ) : (
-                  <CheckCircle2 size={14} color="#10B981" />
-                )}
+        {/* Document Selector Dropdown (Shown when documents exist) */}
+        {caseDocs.length > 0 && (
+          <div style={{ position: 'relative' }}>
+            <button 
+              id="doc-selector-btn"
+              onClick={() => {
+                const el = document.getElementById('doc-dropdown-menu');
+                if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 12px',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: '500',
+                color: '#1E293B',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <div style={{
+                width: '20px',
+                height: '20px',
+                borderRadius: '4px',
+                backgroundColor: currentDoc?.status === 'flagged' ? '#FEE2E2' : '#EFF6FF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: currentDoc?.status === 'flagged' ? '#DC2626' : '#2563EB'
+              }}>
+                <FileText size={12} strokeWidth={2.5} />
               </div>
-            ))}
+              <span style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {currentDoc?.filename || 'Select Document'}
+              </span>
+              <ChevronDown size={14} color="#64748B" />
+            </button>
+
+            {/* Dropdown Menu */}
+            <div 
+              id="doc-dropdown-menu"
+              style={{
+                display: 'none',
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                marginTop: '4px',
+                width: '300px',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #E2E8F0',
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
+                zIndex: 100,
+                padding: '4px',
+                maxHeight: '340px',
+                overflowY: 'auto'
+              }}
+            >
+              <div style={{ padding: '6px 8px', fontSize: '11px', fontWeight: '600', color: '#94A3B8', textTransform: 'uppercase' }}>
+                Documents ({caseDocs.length})
+              </div>
+              {caseDocs.map(doc => (
+                <div
+                  key={doc.id}
+                  onClick={() => {
+                    onSelectDoc(doc);
+                    const el = document.getElementById('doc-dropdown-menu');
+                    if (el) el.style.display = 'none';
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    color: currentDoc?.id === doc.id ? '#2563EB' : '#1E293B',
+                    backgroundColor: currentDoc?.id === doc.id ? '#EFF6FF' : 'transparent',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = currentDoc?.id === doc.id ? '#EFF6FF' : '#F8FAFC'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = currentDoc?.id === doc.id ? '#EFF6FF' : 'transparent'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                    <FileText size={14} color={doc.status === 'flagged' ? '#DC2626' : '#10B981'} style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {doc.filename}
+                    </span>
+                  </div>
+                  {doc.status === 'flagged' ? (
+                    <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#FEE2E2', color: '#DC2626', borderRadius: '10px', fontWeight: '600', flexShrink: 0 }}>
+                      {doc.trust_score}%
+                    </span>
+                  ) : (
+                    <CheckCircle2 size={14} color="#10B981" style={{ flexShrink: 0 }} />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Center: Zoom & View Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -287,77 +293,32 @@ export default function TopNav({
         </button>
       </div>
 
-      {/* Right: Case Badge, Upload & Alerts */}
+      {/* Right: Upload Action Button */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {/* Upload Button */}
         <button 
           id="quick-upload-btn"
           onClick={onOpenUpload}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
+            gap: '8px',
+            padding: '7px 16px',
             backgroundColor: '#2563EB',
             color: '#FFFFFF',
             border: 'none',
             borderRadius: '6px',
-            fontSize: '12px',
+            fontSize: '13px',
             fontWeight: '600',
             cursor: 'pointer',
-            boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
-            transition: 'background 0.15s'
+            boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
+            transition: 'all 0.15s ease'
           }}
           onMouseEnter={e => e.currentTarget.style.backgroundColor = '#1D4ED8'}
           onMouseLeave={e => e.currentTarget.style.backgroundColor = '#2563EB'}
         >
-          <Upload size={13} />
-          <span>Upload File</span>
+          <Upload size={14} />
+          <span>Upload Document</span>
         </button>
-
-        {/* Case Badge */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '6px 12px',
-          backgroundColor: '#F8FAFC',
-          border: '1px solid #E2E8F0',
-          borderRadius: '6px',
-          fontSize: '13px',
-          fontWeight: '500',
-          color: '#1E293B',
-          cursor: 'pointer'
-        }}>
-          <span>Case: Fraud Investigation #1047</span>
-          <ChevronDown size={14} color="#64748B" />
-        </div>
-
-        {/* Notification Bell */}
-        <div style={{
-          position: 'relative',
-          width: '32px',
-          height: '32px',
-          borderRadius: '6px',
-          border: '1px solid #E2E8F0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#475569',
-          cursor: 'pointer',
-          backgroundColor: '#F8FAFC'
-        }}>
-          <Bell size={16} />
-          <div style={{
-            position: 'absolute',
-            top: '5px',
-            right: '5px',
-            width: '7px',
-            height: '7px',
-            borderRadius: '50%',
-            backgroundColor: '#EF4444'
-          }} />
-        </div>
       </div>
     </header>
   );

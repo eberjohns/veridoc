@@ -42,21 +42,22 @@
   - Toggle switches for 8 forensic layers (*Noise Analysis*, *ELA*, *Cloning*, *Copy-Paste*, *Splicing*, *Metadata*, *Font & Style*, *Math Verification*).
   - Smooth **Layer Opacity Slider** (0% to 100%) for real-time visual blending.
   - One-click *Reset Layers* control.
-- **Zone 2 (Center 60% - Document Canvas)**:
-  - High-fidelity zoomable and pannable document canvas.
+- **Zone 2 (Center 60% - Dynamic Document Canvas)**:
+  - High-fidelity zoomable document canvas with **trackpad pinch-to-zoom and mousewheel zoom**.
+  - **Dynamic Multi-Document Rendering**: Dynamically displays any uploaded PDF, PNG, or JPG file alongside its forensic layers.
   - **Dynamic Glowing ELA Heatmap**: Amber/orange radiant heat glow over modified numeric fields.
   - **Copy-Paste Bounding Boxes**: Cyan highlight borders with `"COPY-PASTED"` pill badges.
   - **Math Error Highlights**: Animated red pulse borders on calculation errors.
-  - Right-side canvas toolbar: *Select*, *Pan (Hand)*, *Zoom (Search)*, *Area Crop*, *Bookmark*.
-  - Dynamic bottom canvas legend.
+  - **Clean Initial State**: If no files are uploaded, shows an intuitive "Upload Document" dropzone with an option to load sample case files.
 - **Zone 3 (Right 25% - Auditor Panel)**:
+  - **Full-Height Scrollable Layout**: Spans the complete vertical height to the bottom, ensuring cards and details never get clipped or squished.
   - **Circular Radial Trust Score Gauge** (e.g., `24% CRITICAL`) with animated SVG progress ring.
-  - Tabs for `FINDINGS (5)` and `HISTORY`.
+  - Tabs for `FINDINGS (5)` and `METADATA & HISTORY`.
   - Accordion cards with severity badges (`High`, `Medium`, `Low`), expected vs. found formulas, and source document links (`invoice_3.pdf`).
   - **Bidirectional Hover Synchronization**: Hovering over any finding card highlights the corresponding bounding box on the canvas in real-time.
 - **Bottom Document Dock (Carousel)**:
-  - Batch document switcher across case files with status indicators (`Verified` checkmarks, `Flagged` alerts).
-  - `+ Add Files` drag-and-drop upload modal to analyze custom PDF/JPG/PNG files.
+  - Batch document switcher across all persistent uploaded documents and case files.
+  - `+ Add Document` upload trigger for instant forensic analysis.
 
 ---
 
