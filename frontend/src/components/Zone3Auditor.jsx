@@ -42,7 +42,7 @@ export default function Zone3Auditor({
     }));
   };
 
-  const radius = 50;
+  const radius = 48;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (trustScore / 100) * circumference;
 
@@ -84,23 +84,26 @@ export default function Zone3Auditor({
 
   return (
     <aside style={{
-      width: '340px',
-      minWidth: '320px',
-      maxWidth: '380px',
+      width: '350px',
+      minWidth: '330px',
+      maxWidth: '400px',
       height: '100%',
       backgroundColor: '#FFFFFF',
       borderLeft: '1px solid #E2E8F0',
       display: 'flex',
       flexDirection: 'column',
       userSelect: 'none',
-      overflow: 'hidden'
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      flexShrink: 0
     }}>
       {/* 1. AGGREGATE TRUST SCORE SECTION */}
       <div style={{
-        padding: '20px 20px 14px 20px',
+        padding: '18px 20px 14px 20px',
         borderBottom: '1px solid #F1F5F9',
         textAlign: 'center',
-        flexShrink: 0
+        flexShrink: 0,
+        backgroundColor: '#FFFFFF'
       }}>
         {/* Title */}
         <div style={{
@@ -113,26 +116,26 @@ export default function Zone3Auditor({
           letterSpacing: '0.06em',
           color: '#64748B',
           textTransform: 'uppercase',
-          marginBottom: '12px'
+          marginBottom: '10px'
         }}>
           <span>Aggregate Trust Score</span>
           <Info size={13} color="#94A3B8" />
         </div>
 
         {/* Circular Radial Gauge */}
-        <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 10px auto' }}>
-          <svg width="120" height="120" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
+        <div style={{ position: 'relative', width: '116px', height: '116px', margin: '0 auto 8px auto', flexShrink: 0 }}>
+          <svg width="116" height="116" viewBox="0 0 116 116" style={{ transform: 'rotate(-90deg)' }}>
             <circle
-              cx="60"
-              cy="60"
+              cx="58"
+              cy="58"
               r={radius}
               fill="transparent"
               stroke="#F1F5F9"
               strokeWidth="9"
             />
             <circle
-              cx="60"
-              cy="60"
+              cx="58"
+              cy="58"
               r={radius}
               fill="transparent"
               stroke={getScoreColor(trustScore)}
@@ -157,7 +160,7 @@ export default function Zone3Auditor({
             justifyContent: 'center'
           }}>
             <span style={{
-              fontSize: '30px',
+              fontSize: '28px',
               fontWeight: '800',
               color: getScoreColor(trustScore),
               lineHeight: 1
@@ -181,7 +184,7 @@ export default function Zone3Auditor({
           fontSize: '11.5px',
           color: '#64748B',
           lineHeight: '1.4',
-          maxWidth: '260px',
+          maxWidth: '280px',
           margin: '0 auto'
         }}>
           {summary}
@@ -193,7 +196,10 @@ export default function Zone3Auditor({
         display: 'flex',
         borderBottom: '1px solid #E2E8F0',
         backgroundColor: '#FAFAFA',
-        flexShrink: 0
+        flexShrink: 0,
+        position: 'sticky',
+        top: 0,
+        zIndex: 10
       }}>
         <button
           onClick={() => setActiveTab('findings')}
@@ -233,15 +239,13 @@ export default function Zone3Auditor({
         </button>
       </div>
 
-      {/* 3. FINDINGS LIST - Smooth Full Scrollable Area */}
+      {/* 3. FINDINGS LIST - Smooth Non-Squished List */}
       <div style={{
-        flex: 1,
-        minHeight: 0,
         padding: '14px',
-        overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px'
+        gap: '12px',
+        flexShrink: 0
       }}>
         {activeTab === 'findings' ? (
           findings.length > 0 ? (
@@ -262,22 +266,24 @@ export default function Zone3Auditor({
                     backgroundColor: '#FFFFFF',
                     boxShadow: isHovered ? '0 4px 12px rgba(59, 130, 246, 0.12)' : '0 1px 3px rgba(0,0,0,0.03)',
                     overflow: 'hidden',
-                    transition: 'all 0.15s ease'
+                    flexShrink: 0,
+                    transition: 'border-color 0.15s, box-shadow 0.15s'
                   }}
                 >
                   {/* Header */}
                   <div
                     onClick={() => toggleExpand(finding.id)}
                     style={{
-                      padding: '10px 12px',
+                      padding: '11px 12px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       cursor: 'pointer',
-                      backgroundColor: isHovered ? '#F8FAFC' : '#FFFFFF'
+                      backgroundColor: isHovered ? '#F8FAFC' : '#FFFFFF',
+                      userSelect: 'none'
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
                       <div style={{
                         width: '24px',
                         height: '24px',
@@ -292,12 +298,19 @@ export default function Zone3Auditor({
                       }}>
                         {getFindingIcon(finding.layer_type)}
                       </div>
-                      <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{
+                        fontSize: '12.5px',
+                        fontWeight: '600',
+                        color: '#1E293B',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
                         {finding.title}
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: '8px' }}>
                       <span style={{
                         fontSize: '10px',
                         fontWeight: '700',
@@ -305,7 +318,8 @@ export default function Zone3Auditor({
                         borderRadius: '4px',
                         backgroundColor: badge.bg,
                         color: badge.color,
-                        border: `1px solid ${badge.border}`
+                        border: `1px solid ${badge.border}`,
+                        whiteSpace: 'nowrap'
                       }}>
                         {finding.severity}
                       </span>
@@ -313,7 +327,7 @@ export default function Zone3Auditor({
                     </div>
                   </div>
 
-                  {/* Expanded Body */}
+                  {/* Expanded Body (Never squished) */}
                   {isExpanded && (
                     <div style={{
                       padding: '0 12px 12px 12px',
@@ -321,9 +335,9 @@ export default function Zone3Auditor({
                       color: '#475569',
                       lineHeight: '1.5',
                       borderTop: '1px solid #F1F5F9',
-                      paddingTop: '8px'
+                      paddingTop: '10px'
                     }}>
-                      <p style={{ marginBottom: '8px', color: '#334155' }}>
+                      <p style={{ marginBottom: '10px', color: '#334155', wordBreak: 'break-word' }}>
                         {finding.description}
                       </p>
 
@@ -331,20 +345,21 @@ export default function Zone3Auditor({
                       {finding.expected_value && finding.found_value && (
                         <div style={{
                           backgroundColor: '#F8FAFC',
-                          padding: '8px 10px',
+                          padding: '10px 12px',
                           borderRadius: '6px',
-                          marginBottom: '8px',
+                          marginBottom: '10px',
                           fontSize: '11px',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '3px'
+                          gap: '4px',
+                          border: '1px solid #F1F5F9'
                         }}>
-                          <div>
-                            <span style={{ color: '#64748B' }}>Expected: </span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748B' }}>Expected Formula: </span>
                             <strong style={{ color: '#10B981', fontFamily: 'var(--font-mono)' }}>{finding.expected_value}</strong>
                           </div>
-                          <div>
-                            <span style={{ color: '#64748B' }}>Found: </span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748B' }}>Printed / Stated: </span>
                             <strong style={{ color: '#EF4444', fontFamily: 'var(--font-mono)' }}>{finding.found_value}</strong>
                           </div>
                         </div>
@@ -354,19 +369,19 @@ export default function Zone3Auditor({
                       {finding.source_doc && (
                         <div style={{
                           backgroundColor: '#F8FAFC',
-                          padding: '10px',
+                          padding: '10px 12px',
                           borderRadius: '6px',
-                          marginBottom: '8px',
+                          marginBottom: '10px',
                           border: '1px solid #E2E8F0'
                         }}>
                           <div style={{ fontSize: '10.5px', color: '#64748B', marginBottom: '6px' }}>
                             Source Document Identified:
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <FileText size={14} color="#EC4899" />
-                              <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#1E293B' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                              <FileText size={14} color="#EC4899" style={{ flexShrink: 0 }} />
+                              <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {finding.source_doc}
                               </span>
                             </div>
@@ -382,7 +397,8 @@ export default function Zone3Auditor({
                                   borderRadius: '4px',
                                   fontSize: '10.5px',
                                   fontWeight: '600',
-                                  cursor: 'pointer'
+                                  cursor: 'pointer',
+                                  flexShrink: 0
                                 }}
                               >
                                 View Source
@@ -404,7 +420,7 @@ export default function Zone3Auditor({
                         fontSize: '11px',
                         fontWeight: '600',
                         cursor: 'pointer',
-                        marginTop: '4px'
+                        marginTop: '6px'
                       }}>
                         <span>View Details</span>
                         <ChevronRight size={13} />
@@ -418,7 +434,8 @@ export default function Zone3Auditor({
             <div style={{
               textAlign: 'center',
               padding: '36px 16px',
-              color: '#64748B'
+              color: '#64748B',
+              flexShrink: 0
             }}>
               <div style={{
                 width: '40px',
@@ -439,10 +456,10 @@ export default function Zone3Auditor({
           )
         ) : (
           /* Metadata & History Tab */
-          <div style={{ fontSize: '12px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ backgroundColor: '#F8FAFC', padding: '10px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-              <div style={{ fontWeight: '700', color: '#1E293B', marginBottom: '6px' }}>File Metadata</div>
-              <div style={{ fontSize: '11px', lineHeight: '1.6' }}>
+          <div style={{ fontSize: '12px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0 }}>
+            <div style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+              <div style={{ fontWeight: '700', color: '#1E293B', marginBottom: '8px' }}>File Metadata</div>
+              <div style={{ fontSize: '11px', lineHeight: '1.7' }}>
                 <div><span style={{ color: '#64748B' }}>Filename:</span> {analysisData?.metadata?.filename || 'Unknown'}</div>
                 <div><span style={{ color: '#64748B' }}>Producer:</span> {analysisData?.metadata?.producer || 'N/A'}</div>
                 <div><span style={{ color: '#64748B' }}>Creator:</span> {analysisData?.metadata?.creator || 'N/A'}</div>
@@ -451,8 +468,8 @@ export default function Zone3Auditor({
               </div>
             </div>
 
-            <div style={{ backgroundColor: '#F8FAFC', padding: '10px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-              <div style={{ fontWeight: '700', color: '#1E293B', marginBottom: '6px' }}>Audit Log</div>
+            <div style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+              <div style={{ fontWeight: '700', color: '#1E293B', marginBottom: '8px' }}>Audit Log</div>
               <div style={{ display: 'flex', gap: '8px', fontSize: '11px' }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#2563EB', marginTop: '4px' }} />
                 <div>
