@@ -179,10 +179,12 @@ def _get_document_text(doc_id: Optional[str], fallback_text: Optional[str] = Non
 @router.post("/pre-scan")
 async def pre_scan_document(request: PreScanRequest):
     """
-    Fast pre-scan heuristic check for prompt injection and manipulative micro-constraints.
+    Fast pre-scan heuristic check for prompt injection, manipulative micro-constraints,
+    and steganographic white-on-white text.
     """
     from ..modules.threat_memory_bank import ThreatMemoryBank, heuristic_micro_constraint_scan
     from ..modules.prompt_guard import scan_for_prompt_injection
+    from ..modules.steganography_detector import detect_white_on_white_text
 
     raw_text = _get_document_text(request.doc_id, request.text)
     
@@ -195,12 +197,31 @@ async def pre_scan_document(request: PreScanRequest):
     for mc in micro_matches:
         triggers.append(f"{mc['description']}: '{mc['matched_text']}'")
 
+    # Check for white-on-white text in uploaded document file if doc_id provided
+    white_text_items = []
+    if request.doc_id:
+        for f in os.listdir(UPLOADS_DIR) if os.path.exists(UPLOADS_DIR) else []:
+            if f.startswith(request.doc_id):
+                try:
+                    with open(os.path.join(UPLOADS_DIR, f), "rb") as rf:
+                        file_bytes = rf.read()
+                    white_text_items = detect_white_on_white_text(file_bytes, f)
+                except Exception:
+                    pass
+
+    for wt in white_text_items:
+        inj_flag = " [MALICIOUS PROMPT INJECTION]" if wt.get("is_prompt_injection") else ""
+        triggers.append(f"Steganography: Invisible White-on-White Text detected{inj_flag}: '{wt['text']}'")
+
     t_bank = ThreatMemoryBank()
     threats = t_bank.get_all_threats()
 
     return {
-        "is_injected": len(triggers) > 0 or is_inj,
-        "attack_score": score if is_inj else (0.85 if micro_matches else 0.0),
+        "is_injected": len(triggers) > 0 or is_inj or any(wt.get("is_prompt_injection") for wt in white_text_items),
+        "attack_score": max(score if is_inj else (0.85 if micro_matches else 0.0), 0.96 if white_text_items else 0.0),
+        "white_on_white_detected": len(white_text_items) > 0,
+        "white_on_white_count": len(white_text_items),
+        "white_on_white_items": white_text_items,
         "triggers": triggers,
         "threat_count": len(threats),
         "document_stats": {
@@ -226,10 +247,28 @@ async def shield_query_document(request: ShieldQueryRequest):
 
     raw_text = _get_document_text(request.doc_id, request.document_text)
 
-    # 1. Run Pre-Scan Heuristics
+    # 1. Run Pre-Scan Heuristics & Steganography Check
+    from ..modules.steganography_detector import detect_white_on_white_text
+    white_text_items = []
+    if request.doc_id:
+        for f in os.listdir(UPLOADS_DIR) if os.path.exists(UPLOADS_DIR) else []:
+            if f.startswith(request.doc_id):
+                try:
+                    with open(os.path.join(UPLOADS_DIR, f), "rb") as rf:
+                        file_bytes = rf.read()
+                    white_text_items = detect_white_on_white_text(file_bytes, f)
+                except Exception:
+                    pass
+
     is_inj, score, matched = scan_for_prompt_injection(raw_text)
     micro_matches = heuristic_micro_constraint_scan(raw_text)
     heuristic_triggers = list(matched) + [m["matched_text"] for m in micro_matches]
+
+    for wt in white_text_items:
+        inj_str = " (Adversarial Prompt Injection)" if wt.get("is_prompt_injection") else ""
+        heuristic_triggers.append(f"Invisible White-on-White Text{inj_str}: '{wt['text']}'")
+        if wt['text'] not in raw_text:
+            raw_text += f"\n[STEGANOGRAPHIC WHITE-ON-WHITE TEXT DETECTED]: {wt['text']}"
 
     # 2. Run Query via GroqRotator with Dynamic Threat Memory Bank
     model_id = request.model or "qwen/qwen-2.5-32b"

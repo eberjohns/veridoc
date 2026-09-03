@@ -277,6 +277,29 @@ async def orchestrate_analysis(
         sec_finding = create_injection_finding(filename, sec_score, all_flagged_threats)
         security_findings.append(sec_finding)
 
+    # Steganography / Invisible White-on-White Text Inspection
+    from .modules.steganography_detector import detect_white_on_white_text, create_white_text_findings
+    white_text_items = detect_white_on_white_text(file_bytes, filename)
+    white_text_findings, white_text_boxes = create_white_text_findings(white_text_items, filename)
+
+    if white_text_findings:
+        security_findings.extend(white_text_findings)
+        if "font" in ocr_layers:
+            ocr_layers["font"].overlay_items.extend(white_text_boxes)
+            ocr_layers["font"].findings_count += len(white_text_findings)
+            ocr_layers["font"].flagged = True
+            ocr_layers["font"].score = max(20, ocr_layers["font"].score - 35)
+        else:
+            ocr_layers["font"] = LayerOutput(
+                layer_id="font",
+                name="Typography & Steganography Check",
+                description="Invisible white-on-white text, kerning variance, and font steganography",
+                score=35,
+                flagged=True,
+                findings_count=len(white_text_findings),
+                overlay_items=white_text_boxes
+            )
+
     # Update simhash with actual text if we got meaningful text
     if ocr_text.strip() and len(ocr_text.strip()) > 50:
         from .modules.file_hash import compute_text_simhash
@@ -341,6 +364,9 @@ async def orchestrate_analysis(
         has_financial_content=has_financial_content,
         has_ocr_text=len(ocr_text.strip()) > 20
     )
+    if white_text_findings and "font" not in applicable_layers:
+        applicable_layers.append("font")
+        applicable_layers.sort()
 
     # 9. Fast Deterministic Document Classification
     f_lower = filename.lower()

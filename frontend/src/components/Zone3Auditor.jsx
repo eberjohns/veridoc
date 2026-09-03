@@ -184,7 +184,14 @@ export default function Zone3Auditor({
     }
   };
 
-  const getFindingIcon = (type) => {
+  const getFindingIcon = (type, title = '') => {
+    const tLower = (title || '').toLowerCase();
+    if (tLower.includes('white-on-white') || tLower.includes('steganography')) {
+      return <Eye size={14} color="#E11D48" />;
+    }
+    if (tLower.includes('injection') || tLower.includes('security')) {
+      return <ShieldAlert size={14} color="#DC2626" />;
+    }
     switch (type) {
       case 'math': return <Calculator size={14} color="#EF4444" />;
       case 'copy_paste': return <Copy size={14} color="#06B6D4" />;
@@ -400,7 +407,7 @@ export default function Zone3Auditor({
                       backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                     }}>
-                      {getFindingIcon(finding.layer_type)}
+                      {getFindingIcon(finding.layer_type, finding.title)}
                     </div>
                     <span style={{
                       fontSize: '12.5px', fontWeight: '600', color: '#1E293B',
@@ -905,7 +912,43 @@ export default function Zone3Auditor({
 
           {/* Live Document Pre-Scan Status Banner */}
           {preScanResult && (
-            <div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* White-on-White Text Steganography Callout */}
+              {preScanResult.white_on_white_detected && (
+                <div style={{
+                  backgroundColor: '#FFF7ED', border: '1.5px solid #F97316',
+                  borderRadius: '8px', padding: '10px 12px', color: '#9A3412'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', fontSize: '11.5px', marginBottom: '3px' }}>
+                    <Eye size={15} color="#EA580C" />
+                    Invisible White-on-White Text Detected ({preScanResult.white_on_white_count} item{preScanResult.white_on_white_count > 1 ? 's' : ''})
+                  </div>
+                  <p style={{ margin: '0 0 6px 0', fontSize: '10.5px', color: '#C2410C', lineHeight: '1.4' }}>
+                    Document contains hidden text formatted in white font color (#FFFFFF) matching the white canvas background:
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {preScanResult.white_on_white_items?.slice(0, 3).map((item, idx) => (
+                      <div key={idx} style={{
+                        backgroundColor: '#FFFFFF', border: '1px solid #FDBA74',
+                        borderRadius: '5px', padding: '4px 8px', fontSize: '10px',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px'
+                      }}>
+                        <span style={{ fontFamily: 'monospace', color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          "{item.text}"
+                        </span>
+                        <span style={{
+                          fontSize: '8.5px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px',
+                          backgroundColor: item.is_prompt_injection ? '#FEE2E2' : '#FEF3C7',
+                          color: item.is_prompt_injection ? '#DC2626' : '#D97706', flexShrink: 0
+                        }}>
+                          {item.is_prompt_injection ? 'ADVERSARIAL INJECTION' : 'HIDDEN TEXT'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {preScanResult.is_injected ? (
                 <div style={{
                   backgroundColor: '#FFF1F2', border: '1px solid #F43F5E',
@@ -924,14 +967,14 @@ export default function Zone3Auditor({
                     ))}
                   </ul>
                 </div>
-              ) : (
+              ) : !preScanResult.white_on_white_detected && (
                 <div style={{
                   backgroundColor: '#F0FDF4', border: '1px solid #86EFAC',
                   borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px',
                   color: '#166534', fontSize: '11px'
                 }}>
                   <ShieldCheck size={15} color="#16A34A" />
-                  <span><strong>Pre-Scan Clean:</strong> No obvious prompt injection heuristics found in raw text. Deep inspection active during query.</span>
+                  <span><strong>Pre-Scan Clean:</strong> No prompt injection or white-on-white heuristics found in raw text. Deep inspection active during query.</span>
                 </div>
               )}
 
