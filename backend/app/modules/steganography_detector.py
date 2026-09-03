@@ -89,8 +89,8 @@ def detect_white_on_white_text(file_bytes: bytes, filename: str) -> List[Dict[st
                                 x0, y0, x1, y1 = span.get("bbox", (0, 0, 0, 0))
                                 
                                 # Convert to percentage of page width/height
-                                px = round(((x0 - 2) / pw) * 100, 2)
-                                py = round(((y0 - 2) / ph) * 100, 2)
+                                px = round(((x0 - page.rect.x0 - 2) / pw) * 100, 2)
+                                py = round(((y0 - page.rect.y0 - 2) / ph) * 100, 2)
                                 pw_pct = round(((x1 - x0 + 4) / pw) * 100, 2)
                                 ph_pct = round(((y1 - y0 + 4) / ph) * 100, 2)
                                 

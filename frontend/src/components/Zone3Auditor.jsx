@@ -27,7 +27,9 @@ export default function Zone3Auditor({
   onHoverFinding,
   selectedFindingId,
   onSelectFinding,
-  onSelectDocByFilename
+  onSelectDocByFilename,
+  activeLayers = {},
+  applicableLayers = []
 }) {
   const [activeTab, setActiveTab] = useState('findings'); // 'findings' | 'metadata'
   const [expandedCards, setExpandedCards] = useState({});
@@ -78,7 +80,25 @@ export default function Zone3Auditor({
   const trustScore = analysisData.trust_score;
   const riskLevel = analysisData.risk_level || 'VERIFIED';
   const summary = analysisData.summary || 'Document integrity analysis complete.';
-  const findings = analysisData.findings || [];
+  
+  // Filter findings: only show findings for checks currently enabled in Zone 1
+  const allFindings = analysisData.findings || [];
+  const findings = allFindings.filter(finding => {
+    if (!activeLayers || Object.keys(activeLayers).length === 0) return true;
+    
+    // Prompt Injection Check
+    if (finding.layer_type === 'prompt_guard' || finding.id.includes('prompt') || (finding.id.includes('white-text') && finding.severity === 'Critical')) {
+      return activeLayers.prompt_guard === true;
+    }
+    
+    // Layer type check (metadata, copy_paste, splicing, math, font, cross_reference)
+    const lType = finding.layer_type;
+    if (lType && activeLayers[lType] !== undefined) {
+      return activeLayers[lType] === true;
+    }
+    
+    return true;
+  });
 
   const toggleExpand = (id) => {
     setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
@@ -339,6 +359,55 @@ export default function Zone3Auditor({
                         <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '4px' }}>
                           Page {finding.source_page || 1} • {finding.match_percentage || 87}% Match
                         </div>
+                      </div>
+                    )}
+
+                    {/* Metadata Conclusion / Evidence Details */}
+                    {finding.layer_type === 'metadata' && (
+                      <div style={{
+                        backgroundColor: '#F8FAFC',
+                        padding: '10px 12px',
+                        borderRadius: '6px',
+                        marginBottom: '10px',
+                        border: '1px solid #E2E8F0',
+                        fontSize: '11px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
+                      }}>
+                        <div style={{ color: '#6D28D9', fontWeight: '700', fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Metadata Forensic Conclusion
+                        </div>
+                        {finding.details?.software && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9', paddingBottom: '3px' }}>
+                            <span style={{ color: '#64748B' }}>Editor Detected:</span>
+                            <strong style={{ color: '#DC2626' }}>{finding.details.software}</strong>
+                          </div>
+                        )}
+                        {finding.details?.producer && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9', paddingBottom: '3px' }}>
+                            <span style={{ color: '#64748B' }}>Producer Spooler:</span>
+                            <span style={{ color: '#334155', fontFamily: 'monospace' }}>{finding.details.producer}</span>
+                          </div>
+                        )}
+                        {finding.details?.revision_count && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9', paddingBottom: '3px' }}>
+                            <span style={{ color: '#64748B' }}>Incremental Saves:</span>
+                            <strong style={{ color: '#D97706' }}>{finding.details.revision_count} Revisions</strong>
+                          </div>
+                        )}
+                        {finding.details?.creation_date && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748B' }}>Creation Timestamp:</span>
+                            <span style={{ color: '#334155', fontFamily: 'monospace' }}>{finding.details.creation_date}</span>
+                          </div>
+                        )}
+                        {finding.details?.duplicate_of && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748B' }}>Duplicate Match:</span>
+                            <strong style={{ color: '#DC2626' }}>{finding.details.duplicate_of}</strong>
+                          </div>
+                        )}
                       </div>
                     )}
 

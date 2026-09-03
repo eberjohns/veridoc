@@ -338,6 +338,8 @@ export default function App() {
               handleSelectDoc(found);
             }
           }}
+          activeLayers={activeLayers}
+          applicableLayers={analysisData?.applicable_layers || applicableLayers}
         />
 
       </div>

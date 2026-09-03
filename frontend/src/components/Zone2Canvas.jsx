@@ -475,30 +475,6 @@ export default function Zone2Canvas({
                           strokeDasharray={box.layer_type === 'font' ? '4,4' : 'none'}
                           rx="3"
                         />
-
-                        {/* Tag / Label Pill */}
-                        {box.tag && (
-                          <g>
-                            <rect
-                              x={`${box.x}%`}
-                              y={`${Math.max(0, box.y - 2.2)}%`}
-                              width={`${Math.min(box.width, 18)}%`}
-                              height="2.0%"
-                              fill={strokeColor}
-                              rx="2"
-                            />
-                            <text
-                              x={`${box.x + 0.4}%`}
-                              y={`${Math.max(0, box.y - 2.2) + 1.5}%`}
-                              fill="#FFFFFF"
-                              fontSize="9"
-                              fontWeight="bold"
-                              fontFamily="sans-serif"
-                            >
-                              {box.tag}
-                            </text>
-                          </g>
-                        )}
                       </g>
                     );
                   })}

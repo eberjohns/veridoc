@@ -11,59 +11,52 @@ import {
 export const DEMO_STEPS = [
   {
     id: 'hero',
-    title: '1. Platform Vision & Value Proposition',
+    title: '1. Mathematical & Scientific Architecture',
     targetView: 'landing',
     targetSelector: '#hero',
-    duration: 7
-  },
-  {
-    id: 'checks',
-    title: '2. Scientific Forensic Algorithms',
-    targetView: 'landing',
-    targetSelector: '#checks',
-    duration: 7
-  },
-  {
-    id: 'security',
-    title: '3. Zero-Trust Prompt Injection Defense',
-    targetView: 'landing',
-    targetSelector: '#security',
-    duration: 7
-  },
-  {
-    id: 'workspace_intro',
-    title: '4. Launching the 3-Zone Workspace',
-    targetView: 'workspace',
-    targetSelector: null,
     duration: 6
   },
   {
-    id: 'zone1_layers',
-    title: '5. Zone 1: Smart Layer Controls & Greying',
-    targetView: 'workspace',
-    targetSelector: 'aside:first-of-type',
+    id: 'pipeline',
+    title: '2. Deterministic Forensic Pipeline',
+    targetView: 'landing',
+    targetSelector: '#pipeline',
+    duration: 6
+  },
+  {
+    id: 'algorithms',
+    title: '3. 8 Deep Forensic Check Algorithms',
+    targetView: 'landing',
+    targetSelector: '#algorithms',
     duration: 7
+  },
+  {
+    id: 'benchmarks',
+    title: '4. Zero-Drift Benchmark Telemetry',
+    targetView: 'landing',
+    targetSelector: '#benchmarks',
+    duration: 5
+  },
+  {
+    id: 'zone1_layers',
+    title: '5. Zone 1: Forensic Checks & Overlay Opacity',
+    targetView: 'workspace',
+    targetSelector: 'aside',
+    duration: 6
   },
   {
     id: 'zone2_canvas',
-    title: '6. Zone 2: Dynamic Canvas & Bounding Overlays',
+    title: '6. Zone 2: Document Canvas & Heatmap Overlays',
     targetView: 'workspace',
     targetSelector: 'main',
-    duration: 7
+    duration: 6
   },
   {
     id: 'zone3_auditor',
-    title: '7. Zone 3: Auditor Gauge & Deep Proof Inspection',
+    title: '7. Zone 3: Trust Score & Detailed Forensic Findings',
     targetView: 'workspace',
     targetSelector: 'aside:last-of-type',
-    duration: 7
-  },
-  {
-    id: 'ai_agent',
-    title: '8. AI Agent Tab: Qwen3 Reasoning & Web RAG',
-    targetView: 'workspace',
-    targetSelector: 'aside:last-of-type',
-    duration: 7
+    duration: 6
   }
 ];
 
@@ -79,7 +72,7 @@ export default function DemoPresenter({
   const [progress, setProgress] = useState(0);
   const timerRef = useRef(null);
 
-  const currentStep = DEMO_STEPS[currentStepIndex];
+  const currentStep = DEMO_STEPS[currentStepIndex] || DEMO_STEPS[0];
 
   // Start presentation
   const handleStart = () => {
@@ -117,25 +110,27 @@ export default function DemoPresenter({
   // Execute step transitions & smooth scrolling
   useEffect(() => {
     if (!isDemoActive) return;
+    const step = DEMO_STEPS[currentStepIndex];
+    if (!step) return;
 
     // View switching
-    if (currentStep.targetView !== currentView) {
-      onSwitchView(currentStep.targetView);
-      if (currentStep.targetView === 'workspace') {
-        setTimeout(() => {
-          onLoadSamples?.();
-        }, 300);
-      }
+    if (step.targetView !== currentView) {
+      onSwitchView(step.targetView);
+    }
+    if (step.targetView === 'workspace') {
+      setTimeout(() => {
+        onLoadSamples?.();
+      }, 150);
     }
 
     // Auto-scroll inside landing container or workspace
-    if (currentStep.targetSelector) {
+    if (step.targetSelector) {
       setTimeout(() => {
-        const el = document.querySelector(currentStep.targetSelector);
+        const el = document.querySelector(step.targetSelector);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-      }, 350);
+      }, 200);
     }
   }, [currentStepIndex, isDemoActive]);
 
@@ -146,9 +141,10 @@ export default function DemoPresenter({
       return;
     }
 
+    const step = DEMO_STEPS[currentStepIndex];
+    const totalMs = (step?.duration || 6) * 1000;
     const intervalMs = 100;
-    const totalMs = currentStep.duration * 1000;
-    const stepIncrement = (intervalMs / totalMs) * 100;
+    const increment = (intervalMs / totalMs) * 100;
 
     timerRef.current = setInterval(() => {
       setProgress(prev => {
@@ -156,7 +152,7 @@ export default function DemoPresenter({
           handleNext();
           return 0;
         }
-        return prev + stepIncrement;
+        return prev + increment;
       });
     }, intervalMs);
 
@@ -174,6 +170,7 @@ export default function DemoPresenter({
       }}>
         <button
           onClick={handleStart}
+          title="Launch Guided Demo Tour"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -193,12 +190,13 @@ export default function DemoPresenter({
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563EB'}
         >
           <Presentation size={16} />
+          <span>Interactive Demo Tour</span>
         </button>
       </div>
     );
   }
 
-  // Sleek, Minimal Floating Controller (No narration script box)
+  // Sleek Floating Controller
   return (
     <div style={{
       position: 'fixed',

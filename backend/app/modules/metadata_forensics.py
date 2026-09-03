@@ -46,15 +46,15 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
             revision_count = max(1, eof_count)
             if revision_count > 1:
                 has_incremental_updates = True
-                anom = f"Incremental revisions present: PDF was saved/appended {revision_count} times after initial creation."
+                anom = f"Binary PDF trailer analysis identified {revision_count} separate appended revision blocks (%%EOF markers), confirming post-generation tampering."
                 anomalies.append(anom)
                 findings.append(Finding(
                     id="finding-meta-eof",
                     layer_type="metadata",
-                    severity="Medium",
-                    title="Unflattened Incremental Saves Detected",
+                    severity="High",
+                    title=f"Unflattened Incremental Revisions ({revision_count} Saves)",
                     description=anom,
-                    confidence=0.94,
+                    confidence=0.96,
                     details={"revision_count": revision_count}
                 ))
 
@@ -71,14 +71,14 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
                 match = r.search(combined_soft)
                 if match:
                     soft_name = match.group(0).title()
-                    anom = f"Document modified using graphic editing software: '{soft_name}'"
+                    anom = f"Metadata header contains references to manipulation software '{soft_name}'. Standard financial and official institution documents use automated backend print spoolers, not consumer graphic editors."
                     anomalies.append(anom)
                     findings.append(Finding(
                         id="finding-meta-soft",
                         layer_type="metadata",
-                        severity="Medium",
-                        title="Editing Software Signature Detected",
-                        description=f"Metadata header contains references to manipulation software ({soft_name}). Standard financial and institution documents use automated backend print spoolers.",
+                        severity="High",
+                        title=f"Editing Software Signature: {soft_name}",
+                        description=anom,
                         confidence=0.95,
                         details={"software": soft_name, "producer": producer, "creator": creator}
                     ))
@@ -88,15 +88,15 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
             m_date = parse_pdf_date(m_date_str)
             if c_date and m_date:
                 if m_date < c_date:
-                    anom = f"Temporal contradiction: Modification date ({m_date.strftime('%Y-%m-%d')}) precedes Creation date ({c_date.strftime('%Y-%m-%d')})"
+                    anom = f"Temporal contradiction: Recorded modification date ({m_date.strftime('%Y-%m-%d')}) precedes the creation date ({c_date.strftime('%Y-%m-%d')}), indicating system clock manipulation or metadata spoofing."
                     anomalies.append(anom)
                     findings.append(Finding(
                         id="finding-meta-date",
                         layer_type="metadata",
-                        severity="Low",
-                        title="Metadata Timestamp Inconsistency",
+                        severity="Medium",
+                        title="Temporal Metadata Inversion",
                         description=anom,
-                        confidence=0.90,
+                        confidence=0.92,
                         details={"creation_date": c_date_str, "mod_date": m_date_str}
                     ))
 

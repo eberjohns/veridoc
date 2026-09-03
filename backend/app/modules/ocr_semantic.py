@@ -51,13 +51,15 @@ def find_exact_text_boxes(
     boxes: List[BoundingBox] = []
     
     for page_idx, page in enumerate(doc):
-        w = page.rect.width
-        h = page.rect.height
+        rx0 = page.rect.x0
+        ry0 = page.rect.y0
+        w = max(1.0, page.rect.width)
+        h = max(1.0, page.rect.height)
         rects = page.search_for(phrase)
         
         for i, r in enumerate(rects):
-            bx = max(0.0, ((r.x0 / w) * 100.0) - pad_pct_x)
-            by = max(0.0, ((r.y0 / h) * 100.0) - pad_pct_y)
+            bx = max(0.0, (((r.x0 - rx0) / w) * 100.0) - pad_pct_x)
+            by = max(0.0, (((r.y0 - ry0) / h) * 100.0) - pad_pct_y)
             bw = min(100.0 - bx, (((r.x1 - r.x0) / w) * 100.0) + (pad_pct_x * 2))
             bh = min(100.0 - by, (((r.y1 - r.y0) / h) * 100.0) + (pad_pct_y * 2))
 

@@ -404,7 +404,10 @@ async def orchestrate_analysis(
     # Fast finding summarization
     sorted_findings = sort_findings(all_findings)
     trust_score, risk_level, default_summary = calculate_trust_score(sorted_findings)
-    summary = default_summary
+    
+    from .modules.forensic_narrative import synthesize_forensic_summary
+    summary = synthesize_forensic_summary(sorted_findings, trust_score, risk_level, doc_type, filename)
+    llm_summary = summary
 
     # 10. Merge all layers
     combined_layers: Dict[str, LayerOutput] = {}
