@@ -6,10 +6,18 @@ import {
   Type,
   Calculator,
   GitCompare,
-  RotateCcw
+  RotateCcw,
+  ShieldAlert
 } from 'lucide-react';
 
 const STREAMLINED_LAYERS = [
+  {
+    id: 'prompt_guard',
+    name: 'Prompt Injection Check',
+    desc: 'Adversarial instructions, micro-constraints & white-on-white text',
+    color: '#DC2626',
+    icon: ShieldAlert
+  },
   {
     id: 'splicing',
     name: 'Splicing Check',
@@ -63,7 +71,7 @@ export default function Zone1Layers({
   analysisData,
   applicableLayers  // array of layer ids that apply to this document type
 }) {
-  // Normalize applicable layers — if not provided, all 6 are applicable
+  // Normalize applicable layers from backend
   const applicable = applicableLayers && applicableLayers.length > 0
     ? applicableLayers
     : ['metadata', 'copy_paste', 'splicing', 'math', 'font', 'cross_reference'];
@@ -114,7 +122,7 @@ export default function Zone1Layers({
             <div
               key={layer.id}
               onClick={() => isApplicable && onToggleLayer(layer.id)}
-              title={!isApplicable ? 'N/A for this document type' : undefined}
+              title={!isApplicable ? (layer.id === 'prompt_guard' ? 'No prompt injection or hidden text detected in this file' : 'N/A for this document type') : undefined}
               style={{
                 display: 'flex',
                 alignItems: 'flex-start',

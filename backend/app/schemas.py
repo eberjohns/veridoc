@@ -91,7 +91,7 @@ class AnalyzeResponse(BaseModel):
     # Document type classification
     document_type: Optional[str] = None  # invoice, bank_statement, receipt, etc.
     # Which forensic checks apply to this document type
-    applicable_layers: List[str] = ["metadata", "copy_paste", "splicing", "math", "font", "cross_reference"]
+    applicable_layers: List[str] = ["metadata", "copy_paste", "splicing", "math", "font", "cross_reference", "prompt_guard"]
     # LLM agent outputs
     llm_summary: Optional[str] = None
     llm_context_findings: List[Finding] = []

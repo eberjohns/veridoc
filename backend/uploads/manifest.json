@@ -1,14 +1,122 @@
 [
   {
-    "id": "doc-75df11d7",
-    "filename": "eber_work_register.pdf",
-    "title": "eber_work_register.pdf",
+    "id": "doc-f31a2b8f",
+    "filename": "injected.pdf",
+    "title": "injected.pdf",
+    "status": "flagged",
+    "risk_level": "CRITICAL",
+    "trust_score": 17,
+    "findings_count": 5,
+    "type": "uploaded",
+    "filesize_bytes": 889,
+    "file_sha256": "3209e8163fc9e6d355a8389999cb86dfc9e7fec54807038c7a74f88ebd718b87",
+    "file_phash": "8000000000000000000000000000000000000000000000000000000000000000",
+    "file_simhash": "57452bf3832d1cde",
+    "metadata": {
+      "file_sha256": "3209e8163fc9e6d355a8389999cb86dfc9e7fec54807038c7a74f88ebd718b87",
+      "file_phash": "8000000000000000000000000000000000000000000000000000000000000000",
+      "file_simhash": "57452bf3832d1cde"
+    },
+    "uploaded_at": "2026-09-03T02:27:14.066597+00:00"
+  },
+  {
+    "id": "doc-b3bc936b",
+    "filename": "clean.pdf",
+    "title": "clean.pdf",
+    "status": "verified",
+    "risk_level": "MODERATE",
+    "trust_score": 66,
+    "findings_count": 2,
+    "type": "uploaded",
+    "filesize_bytes": 1239,
+    "file_sha256": "b4db287d6af667a375881c5c8a84cbf4a2b430898c3e5faffb0335d6aec947c0",
+    "file_phash": "bfff3fff3fff3fff3bff3bbf3bb93bb97319e001e000e000c000c000c000c000",
+    "file_simhash": "474b9331d42a80f8",
+    "metadata": {
+      "file_sha256": "b4db287d6af667a375881c5c8a84cbf4a2b430898c3e5faffb0335d6aec947c0",
+      "file_phash": "bfff3fff3fff3fff3bff3bbf3bb93bb97319e001e000e000c000c000c000c000",
+      "file_simhash": "474b9331d42a80f8"
+    },
+    "uploaded_at": "2026-09-03T02:27:04.743108+00:00"
+  },
+  {
+    "id": "doc-f55b6d76",
+    "filename": "CV-ID_CV01_iNJECTED_P_POS.docx",
+    "title": "CV-ID_CV01_iNJECTED_P_POS.docx",
     "status": "flagged",
     "risk_level": "CRITICAL",
     "trust_score": 5,
-    "findings_count": 10,
+    "findings_count": 6,
     "type": "uploaded",
-    "filesize_bytes": 585710,
-    "uploaded_at": "2026-09-03T01:26:37.208696+00:00"
+    "filesize_bytes": 18737,
+    "file_sha256": "27bd43aef6ca6983c37e8e65259abec8376bcc020523655eaeb6c2bbcbeb8ff6",
+    "file_phash": "9fff1fffc4086040387778004c011cf34ec6ccc139bb3b323c000ef98fcfcf8f",
+    "file_simhash": "674259601224b95c",
+    "metadata": {
+      "file_sha256": "27bd43aef6ca6983c37e8e65259abec8376bcc020523655eaeb6c2bbcbeb8ff6",
+      "file_phash": "9fff1fffc4086040387778004c011cf34ec6ccc139bb3b323c000ef98fcfcf8f",
+      "file_simhash": "674259601224b95c"
+    },
+    "uploaded_at": "2026-09-03T02:26:50.178536+00:00"
+  },
+  {
+    "id": "doc-9e005940",
+    "filename": "injected.pdf",
+    "title": "injected.pdf",
+    "status": "verified",
+    "risk_level": "SUSPICIOUS",
+    "trust_score": 39,
+    "findings_count": 4,
+    "type": "uploaded",
+    "filesize_bytes": 844,
+    "file_sha256": "7c6dbc7ed7a93b512e7bad21994e6c8f5a82178c691539a7cdd3ca9b0f3aa143",
+    "file_phash": "8000000000000000000000000000000000000000000000000000000000000000",
+    "file_simhash": "1298a80129a7f127",
+    "metadata": {
+      "file_sha256": "7c6dbc7ed7a93b512e7bad21994e6c8f5a82178c691539a7cdd3ca9b0f3aa143",
+      "file_phash": "8000000000000000000000000000000000000000000000000000000000000000",
+      "file_simhash": "1298a80129a7f127"
+    },
+    "uploaded_at": "2026-09-03T02:26:22.413813+00:00"
+  },
+  {
+    "id": "doc-f0f6c1e2",
+    "filename": "clean.pdf",
+    "title": "clean.pdf",
+    "status": "flagged",
+    "risk_level": "CRITICAL",
+    "trust_score": 5,
+    "findings_count": 5,
+    "type": "uploaded",
+    "filesize_bytes": 4375,
+    "file_sha256": "27c83556c8f7b8732244e5050f79cadbf78235a30e92fa926ad63c2236def774",
+    "file_phash": "afbf2fbf2fbf8516c514c504c105d0053aeb3afb3afb7afbd249d040d040d050",
+    "file_simhash": "0698ad83a8cf6283",
+    "metadata": {
+      "file_sha256": "27c83556c8f7b8732244e5050f79cadbf78235a30e92fa926ad63c2236def774",
+      "file_phash": "afbf2fbf2fbf8516c514c504c105d0053aeb3afb3afb7afbd249d040d040d050",
+      "file_simhash": "0698ad83a8cf6283"
+    },
+    "uploaded_at": "2026-09-03T02:26:13.406095+00:00"
+  },
+  {
+    "id": "doc-690692fb",
+    "filename": "CV-ID_CV01_PLAIN.docx",
+    "title": "CV-ID_CV01_PLAIN.docx",
+    "status": "verified",
+    "risk_level": "MODERATE",
+    "trust_score": 66,
+    "findings_count": 2,
+    "type": "uploaded",
+    "filesize_bytes": 15326,
+    "file_sha256": "04e5b23e6f20a2f6847c49bd042dca5eb4266ddc0806e9f9742282ed58403049",
+    "file_phash": "9fff0fffc408c008387e780068001c7b3fe6ccc04cf933333b303e780ffd0f8f",
+    "file_simhash": "774059603225b934",
+    "metadata": {
+      "file_sha256": "04e5b23e6f20a2f6847c49bd042dca5eb4266ddc0806e9f9742282ed58403049",
+      "file_phash": "9fff0fffc408c008387e780068001c7b3fe6ccc04cf933333b303e780ffd0f8f",
+      "file_simhash": "774059603225b934"
+    },
+    "uploaded_at": "2026-09-03T02:26:11.679501+00:00"
   }
 ]

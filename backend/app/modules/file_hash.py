@@ -170,35 +170,80 @@ def check_duplicate_against_manifest(
     current_doc_id: Optional[str] = None
 ) -> Tuple[Optional[str], str]:
     """
-    Cross-check new document fingerprints against all stored manifest entries.
+    Cross-check new document fingerprints against all stored manifest entries and existing uploads.
 
     Returns:
-        (duplicate_doc_id_or_None, match_type: 'exact' | 'near-visual' | 'near-text' | 'none')
+        (duplicate_name_or_id_or_None, match_type: 'exact' | 'near-visual' | 'near-text' | 'none')
     """
-    for entry in manifest:
+    import os
+    import json
+    uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "uploads")
+    sample_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "sample_data")
+
+    # Combine manifest entries with any cached analysis files in uploads
+    all_entries = list(manifest) if manifest else []
+    seen_ids = {e.get("id") for e in all_entries if e.get("id")}
+
+    # Also inspect existing analysis JSON files in uploads directory
+    if os.path.exists(uploads_dir):
+        for fname in os.listdir(uploads_dir):
+            if fname.endswith(".json") and fname != "manifest.json":
+                stem = fname[:-5]
+                if stem != current_doc_id and stem not in seen_ids:
+                    try:
+                        with open(os.path.join(uploads_dir, fname), "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                            all_entries.append({
+                                "id": data.get("document_id", stem),
+                                "filename": data.get("filename", stem),
+                                "file_sha256": data.get("metadata", {}).get("file_sha256"),
+                                "file_phash": data.get("metadata", {}).get("file_phash"),
+                                "file_simhash": data.get("metadata", {}).get("file_simhash"),
+                                "metadata": data.get("metadata", {})
+                            })
+                            seen_ids.add(stem)
+                    except Exception:
+                        pass
+
+    for entry in all_entries:
         entry_id = entry.get("id", "")
         if entry_id == current_doc_id:
             continue
 
         stored_meta = entry.get("metadata", {})
-
-        # 1. Exact byte match
         stored_sha = stored_meta.get("file_sha256") or entry.get("file_sha256")
-        if stored_sha and stored_sha == sha256:
-            return entry_id, "exact"
+        stored_phash = stored_meta.get("file_phash") or entry.get("file_phash")
+        stored_simhash = stored_meta.get("file_simhash") or entry.get("file_simhash")
+        entry_filename = entry.get("filename", entry_id)
+
+        # If hashes are missing from manifest entry, attempt to load from disk
+        if not stored_sha and os.path.exists(uploads_dir):
+            json_file = os.path.join(uploads_dir, f"{entry_id}.json")
+            if os.path.exists(json_file):
+                try:
+                    with open(json_file, "r", encoding="utf-8") as jf:
+                        jdata = json.load(jf)
+                        stored_meta = jdata.get("metadata", {})
+                        stored_sha = stored_meta.get("file_sha256")
+                        stored_phash = stored_meta.get("file_phash")
+                        stored_simhash = stored_meta.get("file_simhash")
+                except Exception:
+                    pass
+
+        # 1. Exact byte match (SHA-256)
+        if stored_sha and stored_sha.lower() == sha256.lower():
+            return entry_filename, "exact"
 
         # 2. Near-duplicate visual (pHash Hamming <= 10)
-        stored_phash = stored_meta.get("file_phash") or entry.get("file_phash")
         if phash and stored_phash:
             hd = phash_hamming_distance(phash, stored_phash)
             if hd <= 10:
-                return entry_id, "near-visual"
+                return entry_filename, "near-visual"
 
         # 3. Near-duplicate text (SimHash Hamming <= 5)
-        stored_simhash = stored_meta.get("file_simhash") or entry.get("file_simhash")
         if simhash and stored_simhash:
             hd = simhash_hamming_distance(simhash, stored_simhash)
             if hd <= 5:
-                return entry_id, "near-text"
+                return entry_filename, "near-text"
 
     return None, "none"

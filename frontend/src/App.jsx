@@ -26,8 +26,9 @@ export default function App() {
   const [analysisData, setAnalysisData] = useState(null);
 
 
-  // 6 Core Non-Redundant Forensic Checks & Opacity
+  // 7 Core Non-Redundant Forensic Checks & Opacity
   const [activeLayers, setActiveLayers] = useState({
+    prompt_guard: false,
     metadata: true,
     copy_paste: true,
     splicing: true,
@@ -173,6 +174,7 @@ export default function App() {
 
   const handleResetLayers = () => {
     setActiveLayers({
+      prompt_guard: false,
       metadata: false,
       copy_paste: false,
       splicing: false,
@@ -201,11 +203,11 @@ export default function App() {
       uploaded_at: newAnalysis.processed_at
     };
 
-    // Auto-activate only applicable layers from backend
+    // Auto-activate applicable layers from backend
     if (newAnalysis.applicable_layers && newAnalysis.applicable_layers.length > 0) {
       setApplicableLayers(newAnalysis.applicable_layers);
       const newActive = {};
-      ['metadata', 'copy_paste', 'splicing', 'math', 'font', 'cross_reference'].forEach(id => {
+      ['prompt_guard', 'metadata', 'copy_paste', 'splicing', 'math', 'font', 'cross_reference'].forEach(id => {
         newActive[id] = newAnalysis.applicable_layers.includes(id);
       });
       setActiveLayers(newActive);

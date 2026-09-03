@@ -117,7 +117,7 @@ def compute_applicable_layers(
     Determine which forensic checks apply to this document type.
 
     Rules:
-    - metadata & cross_reference: always applicable (every document has metadata)
+    - metadata, cross_reference: always applicable (every document has metadata/hash)
     - splicing & copy_paste: always applicable (ELA/DCT works on any image)
     - math: only if document has financial/numerical content detectible via OCR
     - font: only if document is a digital PDF (PyMuPDF provides span-level typeface data)
@@ -257,11 +257,6 @@ async def orchestrate_analysis(
     extracted_full_text = extract_any_document_text(file_bytes, filename)
     ocr_text = extracted_full_text if extracted_full_text.strip() else ""
 
-    if hasattr(ocr_layers, 'get'):
-        for layer in ocr_layers.values():
-            if hasattr(layer, 'description') and layer.description not in ocr_text:
-                ocr_text += " " + layer.description
-
     # Prompt Injection & Manipulative Micro-Constraint Scanning
     security_findings = []
     is_inj, inj_score, matched_patterns = scan_for_prompt_injection(ocr_text)
@@ -351,11 +346,14 @@ async def orchestrate_analysis(
             id="finding-hash-duplicate",
             layer_type="metadata",
             severity="High",
-            title=f"Duplicate Document Detected: {type_labels.get(duplicate_type, duplicate_type)}",
-            description=f"This document matches previously uploaded document ID '{duplicate_id}' via {duplicate_type} fingerprint comparison.",
+            title=f"Duplicate Document: {type_labels.get(duplicate_type, duplicate_type)}",
+            description=f"This document is a duplicate matching previously uploaded file '{duplicate_id}'. Verified via {type_labels.get(duplicate_type, duplicate_type).lower()}.",
             confidence=0.99 if duplicate_type == "exact" else 0.85,
             details={"duplicate_of": duplicate_id, "match_type": duplicate_type, "sha256": sha256}
         ))
+        if meta_layer:
+            meta_layer.findings_count += 1
+            meta_layer.flagged = True
 
     # 8. Compute Applicable Layers (smart greying logic)
     applicable_layers = compute_applicable_layers(
@@ -366,7 +364,12 @@ async def orchestrate_analysis(
     )
     if white_text_findings and "font" not in applicable_layers:
         applicable_layers.append("font")
-        applicable_layers.sort()
+
+    # Only show / enable prompt_guard if manipulative constraints or white-on-white text were detected
+    has_prompt_threats = bool(all_flagged_threats or is_inj or white_text_findings or white_text_items)
+    if has_prompt_threats and "prompt_guard" not in applicable_layers:
+        applicable_layers.append("prompt_guard")
+    applicable_layers.sort()
 
     # 9. Fast Deterministic Document Classification
     f_lower = filename.lower()

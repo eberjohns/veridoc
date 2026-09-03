@@ -182,6 +182,7 @@ export default function Zone2Canvas({
   const isMathActive = !!activeLayers['math'];
   const isFontActive = !!activeLayers['font'];
   const isCrossReferenceActive = !!activeLayers['cross_reference'];
+  const isPromptGuardActive = activeLayers['prompt_guard'] !== false;
 
   // Collect bounding boxes
   const allBoundingBoxes = [];
@@ -206,8 +207,9 @@ export default function Zone2Canvas({
     if ((box.layer_type === 'splicing' || box.layer_type === 'ela') && !isSplicingActive) return false;
     if (box.layer_type === 'copy_paste' && !isCopyPasteActive) return false;
     if (box.layer_type === 'math' && !isMathActive) return false;
-    if (box.layer_type === 'font' && !isFontActive) return false;
+    if (box.layer_type === 'font' && !isFontActive && box.tag !== 'WHITE-ON-WHITE-TEXT' && box.tag !== 'INJECTION-PAYLOAD') return false;
     if (box.layer_type === 'cross_reference' && !isCrossReferenceActive) return false;
+    if ((box.layer_type === 'prompt_guard' || box.layer_type === 'security' || box.tag === 'WHITE-ON-WHITE-TEXT' || box.tag === 'INJECTION-PAYLOAD') && !isPromptGuardActive) return false;
     return true;
   });
 

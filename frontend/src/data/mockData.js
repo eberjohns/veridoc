@@ -93,6 +93,7 @@ export const DEFAULT_BANK_STATEMENT_ANALYSIS = {
       "Temporal contradiction: Modification date precedes Creation date"
     ]
   },
+  applicable_layers: ["metadata", "copy_paste", "splicing", "math", "font", "cross_reference", "prompt_guard"],
   findings: [
     {
       id: "finding-math-1",

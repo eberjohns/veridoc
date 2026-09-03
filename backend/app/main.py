@@ -152,6 +152,14 @@ async def analyze_document(file: UploadFile = File(...)):
             "findings_count": len(analysis.findings),
             "type": "uploaded",
             "filesize_bytes": len(content),
+            "file_sha256": analysis.metadata.file_sha256,
+            "file_phash": analysis.metadata.file_phash,
+            "file_simhash": analysis.metadata.file_simhash,
+            "metadata": {
+                "file_sha256": analysis.metadata.file_sha256,
+                "file_phash": analysis.metadata.file_phash,
+                "file_simhash": analysis.metadata.file_simhash
+            },
             "uploaded_at": analysis.processed_at
         })
         save_manifest(manifest)
