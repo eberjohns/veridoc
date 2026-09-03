@@ -40,7 +40,7 @@ export default function LandingPage({ onLaunchWorkspace, onStartDemo }) {
       complexity: 'O(W × H)',
       latency: '~28 ms',
       summary: 'Detects digital splicing, inserted graphic patches, and localized compression anomalies by measuring JPEG quantization variance.',
-      formula: 'D(x,y) = |I_{orig}(x,y) - I_{resave}(x,y, Q=90)| × 20\nT_{dynamic} = \\text{clamp}(\\mu_{D} + 2.5\\sigma_{D}, 30.0, 140.0)',
+      formula: `D(x,y) = |I_orig(x,y) - I_resave(x,y, Q=90)| × 20\nT_dynamic = clamp(mean(D) + 2.5 * std(D), 30.0, 140.0)`,
       pipeline: [
         {
           step: '1. Baseline Compression Resave',
@@ -73,10 +73,10 @@ heatmap = cv2.applyColorMap(amplified, cv2.COLORMAP_JET)`,
       icon: Copy,
       color: '#0891B2',
       badge: 'Frequency Transform & Block Matching',
-      complexity: 'O(N \\log N)',
+      complexity: 'O(N log N)',
       latency: '~45 ms',
       summary: 'Identifies duplicated transaction rows, forged signatures, and cloned stamps within the same document using frequency-domain block matching.',
-      formula: 'F(u,v) = \\alpha(u)\\alpha(v) \\sum_{x=0}^{15}\\sum_{y=0}^{15} f(x,y) \\cos\\left[\\frac{(2x+1)u\\pi}{32}\\right] \\cos\\left[\\frac{(2y+1)v\\pi}{32}\\right]\n\\vec{s} = (\\Delta y, \\Delta x) = \\left(\\text{round}\\left(\\frac{y_2-y_1}{8}\\right) \\cdot 8, \\text{round}\\left(\\frac{x_2-x_1}{8}\\right) \\cdot 8\\right)',
+      formula: `F(u,v) = α(u)α(v) Σ Σ f(x,y) cos[(2x+1)uπ / 32] cos[(2y+1)vπ / 32]\nShift Vector = (round((y2 - y1) / 8) * 8, round((x2 - x1) / 8) * 8)`,
       pipeline: [
         {
           step: '1. Sliding Window Decomposition',
@@ -111,10 +111,10 @@ feature_list.sort(key=lambda item: item[0].tolist())`,
       icon: Calculator,
       color: '#DC2626',
       badge: 'Deterministic Accounting Verification',
-      complexity: 'O(K \\text{ rows})',
+      complexity: 'O(K rows)',
       latency: '~15 ms',
       summary: 'Verifies cumulative balance arithmetic, table summaries, and line-item debits/credits against printed document totals with sub-cent precision.',
-      formula: '\\text{Balance}_{\\text{closing}} = \\text{Balance}_{\\text{opening}} + \\sum_{i=1}^n \\text{Deposits}_i - \\sum_{j=1}^m \\text{Withdrawals}_j\n|\\Delta_{\\text{financial}}| = |\\text{Balance}_{\\text{calculated}} - \\text{Balance}_{\\text{stated}}| > \\$0.01',
+      formula: `Balance_closing = Balance_opening + Σ(Deposits) - Σ(Withdrawals)\n|Δ_financial| = |Balance_calculated - Balance_stated| > $0.01`,
       pipeline: [
         {
           step: '1. Text Span & Financial OCR Stream Parsing',
@@ -151,10 +151,10 @@ if delta > 0.01:
       icon: Eye,
       color: '#BE123C',
       badge: 'Font Channel & Adversarial Injection',
-      complexity: 'O(S \\text{ spans})',
+      complexity: 'O(S spans)',
       latency: '~12 ms',
       summary: 'Exposes text rendered in white font matching white backgrounds and microscopic font sizes designed to hijack downstream LLM parsers.',
-      formula: '\\text{IsWhite} = (R > 250 \\land G > 250 \\land B > 250) \\lor (\\text{ColorHex} == \\text{\\"#FFFFFF\\\"})\n\\text{IsMicro} = \\text{FontSize} \\le 2.5\\text{pt}',
+      formula: `IsWhite = (R > 250 and G > 250 and B > 250) or (Hex == "#FFFFFF")\nIsMicroscopic = FontSize <= 2.5 pt`,
       pipeline: [
         {
           step: '1. PyMuPDF Text Span Inspection',
@@ -190,10 +190,10 @@ for block in page.get_text("dict")["blocks"]:
       icon: Layers,
       color: '#059669',
       badge: 'Container Telemetry & XMP Streams',
-      complexity: 'O(B \\text{ bytes})',
+      complexity: 'O(B bytes)',
       latency: '~8 ms',
       summary: 'Uncovers editing software traces, unflattened incremental save revisions, and chronological date inversions.',
-      formula: '\\text{RevisionCount} = \\text{count}(\\text{\\"%%EOF\\"}, \\text{FileBytes})\n\\text{TamperFlag} = (T_{\\text{mod}} < T_{\\text{created}}) \\lor \\text{Match}(\\text{SoftwareRegexes})',
+      formula: `RevisionCount = count("%%EOF", FileBytes)\nTamperFlag = (T_mod < T_created) or Match(EditorSignatures)`,
       pipeline: [
         {
           step: '1. Binary Trailer Increment Counting',
@@ -226,10 +226,10 @@ if mod_date < creation_date:
       icon: FileCode,
       color: '#7C3AED',
       badge: 'Cryptographic & Perceptual Hashes',
-      complexity: 'O(1) \\text{ lookup}',
+      complexity: 'O(1) lookup',
       latency: '~10 ms',
       summary: 'Guarantees document identity across exact byte, visual layout, and textual similarity horizons to catch duplicates across case archives.',
-      formula: '\\text{Exact: } \\text{SHA256}(D_{\\text{new}}) == \\text{SHA256}(D_{\\text{stored}})\n\\text{Visual: } \\text{Hamming}(\\text{pHash}_1, \\text{pHash}_2) \\le 10 \\quad \\text{Text: } \\text{Hamming}(\\text{SimHash}_1, \\text{SimHash}_2) \\le 5',
+      formula: `Exact: SHA256(Doc_new) == SHA256(Doc_stored)\nVisual: Hamming(pHash_1, pHash_2) <= 10\nTextual: Hamming(SimHash_1, SimHash_2) <= 5`,
       pipeline: [
         {
           step: '1. Cryptographic SHA-256 Hashing',
@@ -270,7 +270,7 @@ if hamming(simhash, stored_simhash) <= 5:
       complexity: 'O(W × H)',
       latency: '~14 ms',
       summary: 'Screens incoming scans for motion blur, optical glare reflection, and skew angle misalignment before forensic evaluation.',
-      formula: '\\text{BlurScore} = \\text{Var}(\\nabla^2 I) = \\frac{1}{N} \\sum_{x,y} (\\nabla^2 I(x,y) - \\mu)^2\n\\text{GlarePct} = \\frac{\\sum [I(x,y) \\ge 250]}{W \\times H} \\times 100',
+      formula: `BlurScore = Var(∇²I) = (1/N) * Σ(∇²I(x,y) - μ)²\nGlareRatio = (Σ[I(x,y) >= 250] / (W * H)) * 100`,
       pipeline: [
         {
           step: '1. Laplacian Sharpness Variance',
@@ -305,10 +305,10 @@ has_glare = glare_pct > 8.0`,
       icon: FileSearch,
       color: '#4F46E5',
       badge: 'Multi-File Batch Forensics',
-      complexity: 'O(D \\times K)',
+      complexity: 'O(D × K)',
       latency: '~20 ms',
       summary: 'Compares transaction lines, invoice numbers, and vendor entities across multiple documents in a case to detect cross-file recycling.',
-      formula: '\\text{Sim}_{\\text{cross}}(D_A, D_B) = \\frac{|\\text{Tokens}(D_A) \\cap \\text{Tokens}(D_B)|}{|\\text{Tokens}(D_A) \\cup \\text{Tokens}(D_B)|}',
+      formula: `Similarity(Doc_A, Doc_B) = |Tokens(Doc_A) ∩ Tokens(Doc_B)| / |Tokens(Doc_A) ∪ Tokens(Doc_B)|`,
       pipeline: [
         {
           step: '1. Inter-Document Entity Extraction',

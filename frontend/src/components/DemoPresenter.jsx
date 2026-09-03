@@ -190,7 +190,6 @@ export default function DemoPresenter({
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563EB'}
         >
           <Presentation size={16} />
-          <span>Interactive Demo Tour</span>
         </button>
       </div>
     );
