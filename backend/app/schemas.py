@@ -67,6 +67,12 @@ class DocumentMetadata(BaseModel):
     has_anomalies: bool = False
     anomalies: List[str] = []
     raw_metadata: Dict[str, Any] = {}
+    # File fingerprints
+    file_sha256: Optional[str] = None
+    file_phash: Optional[str] = None
+    file_simhash: Optional[str] = None
+    duplicate_of: Optional[str] = None
+    duplicate_type: Optional[str] = None  # 'exact' | 'near-visual' | 'near-text'
 
 class AnalyzeResponse(BaseModel):
     document_id: str
@@ -82,3 +88,14 @@ class AnalyzeResponse(BaseModel):
     preview_image_url: Optional[str] = None
     pages: List[PageInfo] = []
     processed_at: str
+    # Document type classification
+    document_type: Optional[str] = None  # invoice, bank_statement, receipt, etc.
+    # Which forensic checks apply to this document type
+    applicable_layers: List[str] = ["metadata", "copy_paste", "splicing", "math", "font", "cross_reference"]
+    # LLM agent outputs
+    llm_summary: Optional[str] = None
+    llm_context_findings: List[Finding] = []
+    agent_confidence: float = 0.0
+    # Granular forensic execution trace & timing telemetry
+    execution_telemetry: Optional[Dict[str, Any]] = None
+

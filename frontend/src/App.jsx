@@ -5,6 +5,9 @@ import Zone2Canvas from './components/Zone2Canvas';
 import Zone3Auditor from './components/Zone3Auditor';
 import BottomDocCarousel from './components/BottomDocCarousel';
 import UploadModal from './components/UploadModal';
+import LandingPage from './components/LandingPage';
+import DemoPresenter from './components/DemoPresenter';
+
 
 import { DEFAULT_CASE_DOCS, DEFAULT_BANK_STATEMENT_ANALYSIS } from './data/mockData';
 import { 
@@ -16,20 +19,26 @@ import {
 } from './services/api';
 
 export default function App() {
+  const [currentView, setCurrentView] = useState('landing'); // 'landing' | 'workspace'
+  const [isDemoActive, setIsDemoActive] = useState(false);
   const [caseDocs, setCaseDocs] = useState([]);
   const [currentDoc, setCurrentDoc] = useState(null);
   const [analysisData, setAnalysisData] = useState(null);
 
+
   // 6 Core Non-Redundant Forensic Checks & Opacity
   const [activeLayers, setActiveLayers] = useState({
-    metadata: false,       // Metadata & Software Audit
-    copy_paste: true,      // Copy-Paste Check (Within Document)
-    splicing: true,        // Splicing Check (Visual ELA & Patch Borders)
-    math: true,            // Math Check (Arithmetic & Formula Consistency)
-    font: false,           // Font Mismatch Check (Kerning & Typography)
-    cross_reference: true  // Cross-Reference Check (Cross-Document Matching)
+    metadata: true,
+    copy_paste: true,
+    splicing: true,
+    math: true,
+    font: false,
+    cross_reference: true
   });
   const [layerOpacity, setLayerOpacity] = useState(0.65);
+  // Which layers apply to current document (from backend)
+  const [applicableLayers, setApplicableLayers] = useState([]);
+
 
   // Zoom & Pan
   const [zoomLevel, setZoomLevel] = useState(1.0);
@@ -192,35 +201,58 @@ export default function App() {
       uploaded_at: newAnalysis.processed_at
     };
 
+    // Auto-activate only applicable layers from backend
+    if (newAnalysis.applicable_layers && newAnalysis.applicable_layers.length > 0) {
+      setApplicableLayers(newAnalysis.applicable_layers);
+      const newActive = {};
+      ['metadata', 'copy_paste', 'splicing', 'math', 'font', 'cross_reference'].forEach(id => {
+        newActive[id] = newAnalysis.applicable_layers.includes(id);
+      });
+      setActiveLayers(newActive);
+    }
+
     setCaseDocs(prev => [newDocItem, ...prev.filter(d => d.id !== newDocItem.id)]);
     setCurrentDoc(newDocItem);
     setAnalysisData(newAnalysis);
     localStorage.setItem('veridoc_active_doc_id', newDocItem.id);
   };
 
+
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      width: '100vw',
-      overflow: 'hidden',
-      backgroundColor: '#F8FAFC'
-    }}>
-      {/* Top Navigation */}
-      <TopNav
-        currentDoc={currentDoc}
-        caseDocs={caseDocs}
-        onSelectDoc={handleSelectDoc}
-        onDeleteDoc={handleDeleteDoc}
-        zoomLevel={zoomLevel}
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        onResetZoom={handleResetZoom}
-        isPanMode={isPanMode}
-        onTogglePanMode={() => setIsPanMode(prev => !prev)}
-        onOpenUpload={() => setIsUploadOpen(true)}
-      />
+    <>
+      {currentView === 'landing' ? (
+        <LandingPage
+          onLaunchWorkspace={() => setCurrentView('workspace')}
+          onStartDemo={() => {
+            setCurrentView('landing');
+            setIsDemoActive(true);
+          }}
+        />
+      ) : (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100vh',
+          width: '100vw',
+          overflow: 'hidden',
+          backgroundColor: '#F8FAFC'
+        }}>
+          {/* Top Navigation */}
+          <TopNav
+            currentDoc={currentDoc}
+            caseDocs={caseDocs}
+            onSelectDoc={handleSelectDoc}
+            onDeleteDoc={handleDeleteDoc}
+            zoomLevel={zoomLevel}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onResetZoom={handleResetZoom}
+            isPanMode={isPanMode}
+            onTogglePanMode={() => setIsPanMode(prev => !prev)}
+            onOpenUpload={() => setIsUploadOpen(true)}
+            onGoToLanding={() => setCurrentView('landing')}
+          />
+
 
       {/* Main Forensic Workspace */}
       <div style={{
@@ -239,7 +271,9 @@ export default function App() {
           onChangeOpacity={setLayerOpacity}
           onResetLayers={handleResetLayers}
           analysisData={analysisData}
+          applicableLayers={analysisData?.applicable_layers || applicableLayers}
         />
+
 
         {/* Center Column: Zone 2 Canvas + Bottom Document Carousel */}
         <div style={{
@@ -286,18 +320,44 @@ export default function App() {
           selectedFindingId={selectedFindingId}
           onSelectFinding={setSelectedFindingId}
           onSelectDocByFilename={(fname) => {
-            const found = caseDocs.find(d => d.filename.toLowerCase() === fname.toLowerCase());
-            if (found) handleSelectDoc(found);
+            if (!fname) return;
+            const cleanTarget = fname.toLowerCase().replace(/\.[^.]+$/, '');
+            const found = caseDocs.find(d => {
+              const dName = (d.filename || '').toLowerCase();
+              const dId = (d.id || '').toLowerCase();
+              return dName === fname.toLowerCase() || 
+                     dId === fname.toLowerCase() || 
+                     dName.includes(cleanTarget) || 
+                     dId.includes(cleanTarget) ||
+                     cleanTarget.includes(dId) ||
+                     cleanTarget.includes(dName.replace(/\.[^.]+$/, ''));
+            });
+            if (found) {
+              handleSelectDoc(found);
+            }
           }}
         />
+
       </div>
 
-      {/* Upload Modal */}
-      <UploadModal
-        isOpen={isUploadOpen}
-        onClose={() => setIsUploadOpen(false)}
-        onUploadComplete={handleUploadComplete}
+          {/* Upload Modal */}
+          <UploadModal
+            isOpen={isUploadOpen}
+            onClose={() => setIsUploadOpen(false)}
+            onUploadComplete={handleUploadComplete}
+          />
+        </div>
+      )}
+
+      {/* Floating Demo Presenter (Accessible from both Landing and Workspace) */}
+      <DemoPresenter
+        currentView={currentView}
+        onSwitchView={setCurrentView}
+        onLoadSamples={loadSampleCases}
+        isDemoActive={isDemoActive}
+        setIsDemoActive={setIsDemoActive}
       />
-    </div>
+    </>
   );
 }
+

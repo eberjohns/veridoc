@@ -78,3 +78,121 @@ export async function uploadAndAnalyzeDocument(file) {
 
   return await res.json();
 }
+
+export async function submitAgentContext(docId, userContext, referenceUrls = []) {
+  const res = await fetch(`${API_BASE_URL}/agent/analyze`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      doc_id: docId,
+      user_context: userContext,
+      reference_urls: referenceUrls
+    })
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || 'Agent context analysis failed');
+  }
+
+  return await res.json();
+}
+
+export async function submitShieldQuery({ docId, prompt, documentText = null, model = 'qwen/qwen-2.5-32b', apiKeys = null }) {
+  const res = await fetch(`${API_BASE_URL}/agent/shield-query`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      doc_id: docId,
+      document_text: documentText,
+      prompt: prompt,
+      model: model,
+      api_keys: apiKeys
+    })
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || 'Shield query execution failed');
+  }
+
+  return await res.json();
+}
+
+export async function preScanDocument({ docId = null, text = null }) {
+  const res = await fetch(`${API_BASE_URL}/agent/pre-scan`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      doc_id: docId,
+      text: text
+    })
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || 'Pre-scan failed');
+  }
+
+  return await res.json();
+}
+
+export async function fetchLearnedThreats() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/agent/threats`);
+    if (res.ok) return await res.json();
+  } catch (err) {
+    console.warn('Could not fetch learned threats:', err);
+  }
+  return { threats: [] };
+}
+
+export async function addLearnedThreat(pattern, category = 'Learned Micro-Constraint', severity = 'High') {
+  const res = await fetch(`${API_BASE_URL}/agent/threats`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      pattern,
+      category,
+      severity,
+      source: 'User Manual Entry'
+    })
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || 'Failed to add threat pattern');
+  }
+
+  return await res.json();
+}
+
+export async function deleteLearnedThreat(threatId) {
+  const res = await fetch(`${API_BASE_URL}/agent/threats/${threatId}`, {
+    method: 'DELETE'
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || 'Failed to delete threat pattern');
+  }
+
+  return await res.json();
+}
+
+export async function resetLearnedThreats() {
+  const res = await fetch(`${API_BASE_URL}/agent/threats/reset`, {
+    method: 'POST'
+  });
+  if (res.ok) return await res.json();
+  return null;
+}
+

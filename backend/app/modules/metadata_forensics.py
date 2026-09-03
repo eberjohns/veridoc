@@ -9,7 +9,8 @@ from ..schemas import Finding, LayerOutput, DocumentMetadata, BoundingBox
 FLAGGED_SOFTWARE_PATTERNS = [
     r"photoshop", r"gimp", r"canva", r"illustrator", r"paint\.net",
     r"coreldraw", r"inkscape", r"acrobat\s+distiller", r"ilovepdf",
-    r"smallpdf", r"sejda", r"pdfescape", r"pdf-xchange", r"master\s+pdf\s+editor"
+    r"smallpdf", r"sejda", r"pdfescape", r"pdf-xchange", r"master\s+pdf\s+editor",
+    r"snapseed", r"lightroom", r"picsart", r"pixlr", r"vsco", r"meitu"
 ]
 
 SOFTWARE_REGEXES = [re.compile(p, re.IGNORECASE) for p in FLAGGED_SOFTWARE_PATTERNS]
@@ -18,7 +19,6 @@ def parse_pdf_date(date_str: str) -> datetime | None:
     if not date_str:
         return None
     try:
-        # Standard PDF date format: D:YYYYMMDDHHmmSSOHH'mm'
         clean = date_str.replace("D:", "").replace("'", "").replace("+", "").replace("-", "")
         clean = clean[:14]
         if len(clean) >= 8:
@@ -42,7 +42,6 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
 
     if is_pdf:
         try:
-            # Check incremental saves (%%EOF count)
             eof_count = len(re.findall(b"%%EOF", file_bytes))
             revision_count = max(1, eof_count)
             if revision_count > 1:
@@ -67,7 +66,6 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
             c_date_str = raw_meta.get("creationDate") or ""
             m_date_str = raw_meta.get("modDate") or ""
             
-            # 1. Check software tags using regex patterns
             combined_soft = f"{producer} {creator}".lower()
             for r in SOFTWARE_REGEXES:
                 match = r.search(combined_soft)
@@ -86,7 +84,6 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
                     ))
                     break
 
-            # 2. Check creation vs modification dates
             c_date = parse_pdf_date(c_date_str)
             m_date = parse_pdf_date(m_date_str)
             if c_date and m_date:
@@ -103,15 +100,13 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
                         details={"creation_date": c_date_str, "mod_date": m_date_str}
                     ))
 
-            # 3. Check font diversity / layering
             try:
                 embedded_fonts = set()
                 for p in doc:
                     for f in p.get_fonts():
-                        embedded_fonts.add(f[3]) # font name
+                        embedded_fonts.add(f[3])
                 raw_meta["embedded_fonts_count"] = len(embedded_fonts)
                 
-                # Single-page documents with >6 fonts often indicate spliced text blocks
                 if page_count == 1 and len(embedded_fonts) > 6:
                     anom = f"High font diversity on standardized document ({len(embedded_fonts)} distinct font typefaces embedded)."
                     anomalies.append(anom)
@@ -131,29 +126,58 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
         except Exception as e:
             anomalies.append(f"PDF parsing warning: {str(e)}")
     else:
-        # Image EXIF
+        # Comprehensive Image EXIF & Sub-IFD Parsing
         try:
             img = Image.open(io.BytesIO(file_bytes))
+            raw_meta["dimensions"] = f"{img.width}x{img.height}"
+            raw_meta["format"] = img.format
+            raw_meta["mode"] = img.mode
+
             exif = img.getexif()
             if exif:
                 for k, v in exif.items():
                     tag = ExifTags.TAGS.get(k, str(k))
                     raw_meta[tag] = str(v)
-            software = raw_meta.get("Software", "")
-            if any(r.search(software.lower()) for r in SOFTWARE_REGEXES):
-                anom = f"Image metadata mentions image editor: '{software}'"
-                anomalies.append(anom)
-                findings.append(Finding(
-                    id="finding-img-meta",
-                    layer_type="metadata",
-                    severity="Low",
-                    title="Editing Software Signature Detected",
-                    description=anom,
-                    confidence=0.88,
-                    details={"software": software}
-                ))
+                
+                # Check EXIF IFD sub-dictionaries
+                try:
+                    exif_ifd = exif.get_ifd(ExifTags.IFD.Exif)
+                    if exif_ifd:
+                        for k, v in exif_ifd.items():
+                            tag = ExifTags.TAGS.get(k, str(k))
+                            raw_meta[f"EXIF_{tag}"] = str(v)
+                except Exception:
+                    pass
+
+            software = raw_meta.get("Software") or raw_meta.get("EXIF_Software") or ""
+            producer = raw_meta.get("Make", "")
+            creator = raw_meta.get("Model", "")
+            c_date_str = raw_meta.get("DateTimeOriginal") or raw_meta.get("EXIF_DateTimeOriginal") or raw_meta.get("DateTime") or ""
+            m_date_str = raw_meta.get("DateTimeDigitized") or raw_meta.get("EXIF_DateTimeDigitized") or ""
+
+            # Check software editor signatures
+            if software:
+                for r in SOFTWARE_REGEXES:
+                    if r.search(software.lower()):
+                        anom = f"Image edited using software: '{software}'"
+                        anomalies.append(anom)
+                        findings.append(Finding(
+                            id="finding-img-meta",
+                            layer_type="metadata",
+                            severity="Medium",
+                            title="Editing Software Signature Detected",
+                            description=f"EXIF metadata indicates image was processed by graphic editing software: '{software}'.",
+                            confidence=0.92,
+                            details={"software": software}
+                        ))
+                        break
+
+            # If an image has no EXIF or stripped EXIF tags while being edited
+            if not exif and (len(file_bytes) > 50000):
+                raw_meta["exif_status"] = "Stripped / None"
+                
         except Exception as e:
-            anomalies.append(f"Image EXIF reading failed: {str(e)}")
+            anomalies.append(f"Image metadata reading failed: {str(e)}")
 
     has_anomalies = len(anomalies) > 0
     score = 100 - (len(findings) * 22)
@@ -169,8 +193,8 @@ def analyze_metadata(file_bytes: bytes, filename: str) -> Tuple[DocumentMetadata
         page_count=page_count,
         creation_date=c_date_str,
         modification_date=m_date_str,
-        producer=producer,
-        creator=creator,
+        producer=producer or raw_meta.get("Make"),
+        creator=creator or raw_meta.get("Model"),
         has_anomalies=has_anomalies,
         anomalies=anomalies,
         raw_metadata=raw_meta

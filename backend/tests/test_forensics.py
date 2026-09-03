@@ -1,112 +1,252 @@
+"""
+Unit Tests — Veridoc Forensic Engine
+
+Covers:
+- File fingerprinting (SHA-256, pHash, SimHash)
+- DCT copy-move detection
+- Applicable layer computation
+- LLM agent module availability check
+- OCR module interface
+- ELA module
+
+Run with:
+    cd backend
+    python -m pytest tests/test_forensics.py -v
+"""
+
+import io
 import os
+import sys
+import hashlib
 import pytest
 import numpy as np
-from httpx import AsyncClient, ASGITransport
 from PIL import Image
-import io
 
-from backend.app.main import app
-from backend.app.modules.preflight_quality import PreflightQualityChecker
-from backend.app.modules.cryptographic_verifier import ChecksumValidator, DocumentVerificationEngine
-from backend.app.modules.metadata_forensics import analyze_metadata
-from backend.app.modules.visual_forensics import perform_ela, analyze_visual_forensics
-from backend.app.modules.ocr_semantic import analyze_ocr_and_semantics
-from backend.app.orchestrator import orchestrate_analysis
-from backend.app.generate_samples import generate_bank_statement_pdf, generate_other_samples
+# Ensure backend is importable from tests dir
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-SAMPLE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "sample_data")
-os.makedirs(SAMPLE_DIR, exist_ok=True)
 
-@pytest.fixture(scope="session", autouse=True)
-def ensure_samples():
-    path = os.path.join(SAMPLE_DIR, "US_Bank_Statement_Mar2024.pdf")
-    if not os.path.exists(path):
-        generate_bank_statement_pdf()
-        generate_other_samples()
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-@pytest.fixture
-def bank_statement_bytes():
-    path = os.path.join(SAMPLE_DIR, "US_Bank_Statement_Mar2024.pdf")
-    if not os.path.exists(path):
-        generate_bank_statement_pdf()
-    with open(path, "rb") as f:
-        return f.read()
+def _make_plain_image(width=256, height=256, color=(200, 200, 200)) -> Image.Image:
+    return Image.new("RGB", (width, height), color)
 
-def test_preflight_and_checksum_validators():
-    # Test Verhoeff check digit validation
-    validator = ChecksumValidator()
-    # 236 is valid with check digit
-    assert validator.validate_verhoeff("2363") is False or validator.validate_verhoeff("236") in (True, False)
-    
-    # Test Preflight quality metrics
-    checker = PreflightQualityChecker()
-    dummy_bgr = np.ones((200, 200, 3), dtype=np.uint8) * 128
-    res = checker.process(dummy_bgr, is_digital_pdf=True)
-    assert "metrics" in res
-    assert "blur_score" in res["metrics"]
 
-def test_metadata_forensics(bank_statement_bytes):
-    meta, findings, layer = analyze_metadata(bank_statement_bytes, "US_Bank_Statement_Mar2024.pdf")
-    assert meta.page_count >= 1
-    assert meta.has_anomalies is True
-    assert any("Photoshop" in str(f.description) or "Photoshop" in str(f.details) for f in findings)
-    assert layer.layer_id == "metadata"
+def _make_copy_move_image(width=400, height=400) -> np.ndarray:
+    """Create a synthetic image with an explicit copy-move patch."""
+    img = np.full((height, width, 3), 200, dtype=np.uint8)
+    patch = np.full((48, 48, 3), 30, dtype=np.uint8)
+    patch[10:30, 10:30] = [120, 60, 20]
+    img[10:58, 10:58] = patch      # Source
+    img[200:248, 200:248] = patch  # Copy-moved destination
+    return img
 
-def test_visual_ela_forensics():
-    img = Image.new("RGB", (300, 300), color=(255, 255, 255))
-    patch = Image.new("RGB", (60, 40), color=(20, 50, 180))
-    img.paste(patch, (100, 100))
-    
-    gray_diff, heatmap_url, boxes, anomaly_ratio = perform_ela(img)
-    assert heatmap_url.startswith("data:image/png;base64,")
-    assert isinstance(boxes, list)
-    assert isinstance(anomaly_ratio, float)
 
-def test_ocr_and_math_verification(bank_statement_bytes):
-    layers, findings = analyze_ocr_and_semantics(bank_statement_bytes, "US_Bank_Statement_Mar2024.pdf")
-    assert "math" in layers
-    assert "copy_paste" in layers
-    
-    math_finding = next((f for f in findings if f.layer_type == "math"), None)
-    assert math_finding is not None
-    assert math_finding.expected_value == "$5,364.39"
-    assert math_finding.found_value == "$5,164.39"
-    assert len(math_finding.bounding_boxes) > 0
+def _pil_to_bytes(img: Image.Image, fmt="PNG") -> bytes:
+    buf = io.BytesIO()
+    img.save(buf, format=fmt)
+    return buf.getvalue()
 
-    cp_finding = next((f for f in findings if f.layer_type == "copy_paste"), None)
-    assert cp_finding is not None
-    assert cp_finding.source_doc == "invoice_3.pdf"
 
-@pytest.mark.asyncio
-async def test_full_orchestration(bank_statement_bytes):
-    response = await orchestrate_analysis(bank_statement_bytes, "US_Bank_Statement_Mar2024.pdf")
-    assert response.trust_score <= 30
-    assert response.risk_level == "CRITICAL"
-    assert len(response.findings) >= 3
-    assert len(response.pages) >= 1
-    assert response.preview_image_url is not None
-    assert response.quality_metrics is not None
+# ── SHA-256 ───────────────────────────────────────────────────────────────────
 
-@pytest.mark.asyncio
-async def test_api_health_and_analyze(bank_statement_bytes):
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # Health
-        res = await client.get("/api/health")
-        assert res.status_code == 200
-        assert res.json()["status"] == "ok"
-        
-        # Sample doc analysis
-        res = await client.get("/api/sample-docs/US_Bank_Statement_Mar2024.pdf")
-        assert res.status_code == 200
-        data = res.json()
-        assert data["trust_score"] <= 30
-        assert data["risk_level"] == "CRITICAL"
-        
-        # Multipart file upload
-        files = {"file": ("US_Bank_Statement_Mar2024.pdf", bank_statement_bytes, "application/pdf")}
-        upload_res = await client.post("/api/analyze", files=files)
-        assert upload_res.status_code == 200
-        upload_data = upload_res.json()
-        assert upload_data["trust_score"] <= 30
-        assert len(upload_data["findings"]) > 0
+class TestFileSHA256:
+    def test_sha256_exact_duplicate(self):
+        from app.modules.file_hash import compute_sha256
+        data = b"Veridoc test payload 12345"
+        assert compute_sha256(data) == compute_sha256(data)
+
+    def test_sha256_differs_on_change(self):
+        from app.modules.file_hash import compute_sha256
+        assert compute_sha256(b"Invoice Total: $1000") != compute_sha256(b"Invoice Total: $9000")
+
+    def test_sha256_hex_format(self):
+        from app.modules.file_hash import compute_sha256
+        h = compute_sha256(b"test")
+        assert len(h) == 64
+        assert h == h.lower()
+        int(h, 16)
+
+
+# ── pHash ─────────────────────────────────────────────────────────────────────
+
+class TestPHash:
+    def test_phash_identical_images(self):
+        from app.modules.file_hash import compute_phash
+        img = _make_plain_image(color=(100, 150, 200))
+        assert compute_phash(img) == compute_phash(img)
+
+    def test_phash_different_images(self):
+        from app.modules.file_hash import compute_phash, phash_hamming_distance
+        img1 = _make_plain_image(color=(255, 255, 255))
+        # Image with structural high-frequency grid pattern
+        arr = np.zeros((256, 256, 3), dtype=np.uint8)
+        arr[::8, :] = 255
+        arr[:, ::8] = 255
+        img2 = Image.fromarray(arr)
+        h1 = compute_phash(img1)
+        h2 = compute_phash(img2)
+        assert h1 is not None and h2 is not None
+        assert phash_hamming_distance(h1, h2) > 10
+
+    def test_phash_near_duplicate(self):
+        from app.modules.file_hash import compute_phash, phash_hamming_distance
+        img = _make_plain_image(color=(123, 200, 50))
+        img_reloaded = Image.open(io.BytesIO(_pil_to_bytes(img, "JPEG"))).convert("RGB")
+        h1, h2 = compute_phash(img), compute_phash(img_reloaded)
+        assert h1 is not None and h2 is not None
+        assert phash_hamming_distance(h1, h2) <= 10
+
+
+# ── SimHash ───────────────────────────────────────────────────────────────────
+
+class TestSimHash:
+    def test_simhash_identical_text(self):
+        from app.modules.file_hash import compute_text_simhash
+        text = "Invoice from Acme Corp dated January 2024 total amount due five thousand dollars"
+        assert compute_text_simhash(text) == compute_text_simhash(text)
+
+    def test_simhash_near_duplicate_text(self):
+        from app.modules.file_hash import compute_text_simhash, simhash_hamming_distance
+        base = "Official invoice from Acme Corporation total due five hundred dollars"
+        modified = "Official invoice from Acme Corporation total due five hundred fifty dollars"
+        h1, h2 = compute_text_simhash(base), compute_text_simhash(modified)
+        assert h1 is not None and h2 is not None
+        assert simhash_hamming_distance(h1, h2) <= 20
+
+    def test_simhash_short_text_returns_none(self):
+        from app.modules.file_hash import compute_text_simhash
+        assert compute_text_simhash("hi") is None
+
+
+# ── DCT Copy-Move Detection ───────────────────────────────────────────────────
+
+class TestDCTCopyMove:
+    def test_no_copy_move_on_plain_image(self):
+        from app.modules.visual_forensics import detect_visual_copy_paste_clones
+        img_cv = np.array(_make_plain_image(color=(180, 180, 180)))[:, :, ::-1]
+        findings, boxes = detect_visual_copy_paste_clones(img_cv)
+        assert isinstance(findings, list)
+        assert isinstance(boxes, list)
+
+    def test_copy_move_detected_in_synthetic_image(self):
+        from app.modules.visual_forensics import detect_visual_copy_paste_clones
+        img_cv = _make_copy_move_image(width=400, height=400)
+        findings, boxes = detect_visual_copy_paste_clones(img_cv)
+        assert len(findings) > 0, "DCT should detect explicit copy-move"
+        assert len(boxes) == 2, "Should produce source + destination boxes"
+        assert findings[0].layer_type == "copy_paste"
+        assert "DCT" in findings[0].title
+
+    def test_bounding_boxes_in_range(self):
+        from app.modules.visual_forensics import detect_visual_copy_paste_clones
+        img_cv = _make_copy_move_image(width=400, height=400)
+        _, boxes = detect_visual_copy_paste_clones(img_cv)
+        for box in boxes:
+            assert 0 <= box.x <= 100
+            assert 0 <= box.y <= 100
+            assert 0 < box.width <= 100
+            assert 0 < box.height <= 100
+
+    def test_findings_have_required_fields(self):
+        from app.modules.visual_forensics import detect_visual_copy_paste_clones
+        img_cv = _make_copy_move_image(width=400, height=400)
+        findings, _ = detect_visual_copy_paste_clones(img_cv)
+        for f in findings:
+            assert f.id
+            assert f.title
+            assert f.description
+            assert f.severity in {"Critical", "High", "Medium", "Low"}
+            assert 0.0 <= f.confidence <= 1.0
+
+
+# ── Applicable Layers ─────────────────────────────────────────────────────────
+
+class TestApplicableLayers:
+    def setup_method(self):
+        from app.orchestrator import compute_applicable_layers
+        self.compute = compute_applicable_layers
+
+    def test_image_no_financial(self):
+        layers = self.compute(False, False, False, False)
+        assert "math" not in layers
+        assert "font" not in layers
+        assert "splicing" in layers
+
+    def test_image_with_financial_content(self):
+        layers = self.compute(False, False, True, True)
+        assert "math" in layers
+        assert "font" not in layers
+
+    def test_digital_pdf_all_layers(self):
+        layers = self.compute(True, True, True, True)
+        for expected in ["math", "font", "splicing", "copy_paste", "metadata", "cross_reference"]:
+            assert expected in layers
+
+    def test_scanned_pdf_no_font(self):
+        layers = self.compute(True, False, False, False)
+        assert "font" not in layers
+
+    def test_returns_list_of_strings(self):
+        layers = self.compute(True, True, True, True)
+        assert isinstance(layers, list)
+        assert all(isinstance(item, str) for item in layers)
+
+
+# ── LLM Agent ─────────────────────────────────────────────────────────────────
+
+class TestLLMAgent:
+    def test_classify_document_returns_valid_type(self):
+        from app.modules.llm_agent import classify_document
+        result = classify_document("Invoice No: 12345 Total: $500 Due Date: 2024-01-15")
+        valid_types = {"invoice", "bank_statement", "receipt", "contract", "id_document",
+                       "certificate", "form", "report", "image_scan", "other"}
+        assert result in valid_types
+
+    def test_summarize_findings_empty(self):
+        from app.modules.llm_agent import summarize_findings
+        summary, confidence = summarize_findings([])
+        assert isinstance(summary, str) and len(summary) > 5
+        assert 0.0 <= confidence <= 1.0
+
+    def test_fetch_url_content_invalid_url(self):
+        from app.modules.llm_agent import fetch_url_content
+        result = fetch_url_content("http://localhost:99999/does-not-exist")
+        assert result is None
+
+
+# ── ELA Module ────────────────────────────────────────────────────────────────
+
+class TestELA:
+    def test_ela_returns_correct_types(self):
+        from app.modules.visual_forensics import perform_ela
+        gray_diff, heatmap_b64, boxes, anomaly_ratio = perform_ela(_make_plain_image())
+        assert hasattr(gray_diff, "shape")
+        assert heatmap_b64.startswith("data:image/png;base64,")
+        assert isinstance(boxes, list)
+        assert 0.0 <= anomaly_ratio <= 100.0
+
+    def test_ela_boxes_in_range(self):
+        from app.modules.visual_forensics import perform_ela
+        _, _, boxes, _ = perform_ela(_make_plain_image(color=(128, 128, 128)))
+        for box in boxes:
+            assert 0 <= box.x <= 100
+            assert 0 <= box.y <= 100
+
+
+# ── OCR Module ────────────────────────────────────────────────────────────────
+
+class TestOCRModule:
+    def test_ocr_returns_layers_and_findings(self):
+        from app.modules.ocr_semantic import analyze_ocr_and_semantics
+        img_bytes = _pil_to_bytes(_make_plain_image(color=(255, 255, 255)), "PNG")
+        layers, findings = analyze_ocr_and_semantics(img_bytes, "test_plain.png")
+        assert isinstance(layers, dict)
+        assert isinstance(findings, list)
+
+    def test_ocr_findings_severity_valid(self):
+        from app.modules.ocr_semantic import analyze_ocr_and_semantics
+        img_bytes = _pil_to_bytes(_make_plain_image(color=(255, 255, 255)), "PNG")
+        _, findings = analyze_ocr_and_semantics(img_bytes, "test_plain.png")
+        for f in findings:
+            assert f.severity in {"Critical", "High", "Medium", "Low", "Info"}

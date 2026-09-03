@@ -44,45 +44,58 @@ class PreflightQualityChecker:
         }
 
     def detect_and_correct_skew(
-        self, image_bgr: np.ndarray, gray: np.ndarray
+        self, image_bgr: np.ndarray, gray: np.ndarray, is_digital_pdf: bool = False
     ) -> Tuple[np.ndarray, float]:
-        """Detects document rotation skew angle via minimum bounding rect and deskews using affine warp."""
-        thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
-        coords = np.column_stack(np.where(thresh > 0))
-
-        if coords.size == 0:
+        """
+        Detects document rotation skew angle for scanned photos and deskews using affine warp.
+        Digital PDFs are already vector-rasterized and 100% upright.
+        """
+        if is_digital_pdf:
             return image_bgr, 0.0
 
-        rect = cv2.minAreaRect(coords)
-        angle = rect[-1]
+        try:
+            # Use Hough lines on edge image for stable orientation detection
+            edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+            lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 100, minLineLength=image_bgr.shape[1] // 4, maxLineGap=20)
+            
+            angles = []
+            if lines is not None:
+                for line in lines:
+                    x1, y1, x2, y2 = line[0]
+                    dx = x2 - x1
+                    dy = y2 - y1
+                    if abs(dx) > 1e-4:
+                        angle_deg = np.degrees(np.arctan2(dy, dx))
+                        if -45 < angle_deg < 45:
+                            angles.append(angle_deg)
+            
+            if not angles:
+                return image_bgr, 0.0
 
-        if angle < -45:
-            angle = -(90 + angle)
-        elif angle > 45:
-            angle = 90 - angle
-        else:
-            angle = -angle
+            median_angle = float(np.median(angles))
+            # Ignore sub-degree or minor noise angles
+            if abs(median_angle) < 1.5 or abs(median_angle) > 30:
+                return image_bgr, 0.0
 
-        if abs(angle) < 0.2:
+            h, w = image_bgr.shape[:2]
+            center = (w // 2, h // 2)
+            rot_mat = cv2.getRotationMatrix2D(center, median_angle, 1.0)
+            deskewed = cv2.warpAffine(
+                image_bgr, rot_mat, (w, h),
+                flags=cv2.INTER_CUBIC,
+                borderMode=cv2.BORDER_CONSTANT,
+                borderValue=(255, 255, 255)
+            )
+            return deskewed, round(median_angle, 2)
+        except Exception:
             return image_bgr, 0.0
-
-        h, w = image_bgr.shape[:2]
-        center = (w // 2, h // 2)
-        rot_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
-        deskewed = cv2.warpAffine(
-            image_bgr, rot_mat, (w, h),
-            flags=cv2.INTER_CUBIC,
-            borderMode=cv2.BORDER_CONSTANT,
-            borderValue=(255, 255, 255)
-        )
-        return deskewed, round(angle, 2)
 
     def process(self, image_bgr: np.ndarray, is_digital_pdf: bool = False) -> Dict[str, Any]:
         """Runs pre-flight quality checks and returns normalized image and telemetry."""
         gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
         blur_res = self.check_blur(gray)
         glare_res = self.check_glare(gray, is_digital_pdf=is_digital_pdf)
-        deskewed, angle = self.detect_and_correct_skew(image_bgr, gray)
+        deskewed, angle = self.detect_and_correct_skew(image_bgr, gray, is_digital_pdf=is_digital_pdf)
 
         gate_passed = (not blur_res["is_blurry"]) and (not glare_res["has_excessive_glare"])
         return {

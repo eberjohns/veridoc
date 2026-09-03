@@ -1,4 +1,8 @@
 import os
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import json
 import uuid
 import base64
@@ -10,6 +14,7 @@ from fastapi.responses import JSONResponse
 from .schemas import AnalyzeResponse
 from .orchestrator import orchestrate_analysis
 from .sample_cases import CASE_DETAILS, SAMPLE_DOCUMENTS_INFO
+from .routers.agent import router as agent_router
 
 app = FastAPI(
     title="Veridoc Forensic Analysis API",
@@ -25,6 +30,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(agent_router)
+
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 SAMPLE_DIR = os.path.join(BASE_DIR, "sample_data")
@@ -107,16 +115,17 @@ async def analyze_document(file: UploadFile = File(...)):
     Accepts multipart file upload (PDF, PNG, JPG, JPEG), analyzes with forensic modules,
     and persists the document and analysis result to disk so it survives page reloads.
     """
-    allowed_extensions = (".pdf", ".png", ".jpg", ".jpeg")
+    allowed_extensions = (".pdf", ".png", ".jpg", ".jpeg", ".docx", ".xlsx", ".txt")
     if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
         raise HTTPException(
             status_code=400,
-            detail="Unsupported file type. Please upload a PDF, PNG, or JPG file."
+            detail="Unsupported file type. Please upload a PDF, DOCX, XLSX, TXT, PNG, or JPG file."
         )
 
     try:
         content = await file.read()
-        analysis = await orchestrate_analysis(content, file.filename)
+        manifest = load_manifest()
+        analysis = await orchestrate_analysis(content, file.filename, manifest=manifest)
         
         # Persist original file and analysis JSON to uploads directory
         doc_id = analysis.document_id

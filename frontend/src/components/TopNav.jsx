@@ -9,7 +9,8 @@ import {
   Hand, 
   Upload,
   CheckCircle2,
-  Trash2
+  Trash2,
+  BookOpen
 } from 'lucide-react';
 
 export default function TopNav({ 
@@ -23,7 +24,8 @@ export default function TopNav({
   onResetZoom,
   isPanMode,
   onTogglePanMode,
-  onOpenUpload
+  onOpenUpload,
+  onGoToLanding
 }) {
   return (
     <header style={{
@@ -40,7 +42,11 @@ export default function TopNav({
       {/* Left: Brand & Document Selector */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         {/* Brand Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div 
+          onClick={onGoToLanding}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+          title="Return to Veridoc Overview & Documentation"
+        >
           <div style={{
             width: '32px',
             height: '32px',
@@ -321,8 +327,32 @@ export default function TopNav({
         </button>
       </div>
 
-      {/* Right: Upload Action Button */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      {/* Right: Overview & Upload Action Buttons */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <button
+          onClick={onGoToLanding}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '7px 12px',
+            backgroundColor: '#F8FAFC',
+            color: '#475569',
+            border: '1px solid #CBD5E1',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#EFF6FF'; e.currentTarget.style.color = '#2563EB'; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#F8FAFC'; e.currentTarget.style.color = '#475569'; }}
+          title="View Platform Overview, Algorithms & Documentation"
+        >
+          <BookOpen size={14} />
+          <span>Overview & Docs</span>
+        </button>
+
         <button 
           id="quick-upload-btn"
           onClick={onOpenUpload}
