@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "id": "doc-01d595b3",
+    "filename": "CV-ID_CV01_PLAIN.docx",
+    "title": "CV-ID_CV01_PLAIN.docx",
+    "status": "verified",
+    "risk_level": "MODERATE",
+    "trust_score": 66,
+    "findings_count": 2,
+    "type": "uploaded",
+    "filesize_bytes": 15326,
+    "file_sha256": "04e5b23e6f20a2f6847c49bd042dca5eb4266ddc0806e9f9742282ed58403049",
+    "file_phash": "9fff0fffc408c008387e780068001c7b3fe6ccc04cf933333b303e780ffd0f8f",
+    "file_simhash": "67405962322cb974",
+    "metadata": {
+      "file_sha256": "04e5b23e6f20a2f6847c49bd042dca5eb4266ddc0806e9f9742282ed58403049",
+      "file_phash": "9fff0fffc408c008387e780068001c7b3fe6ccc04cf933333b303e780ffd0f8f",
+      "file_simhash": "67405962322cb974"
+    },
+    "uploaded_at": "2026-09-03T03:40:06.138528+00:00"
+  }
+]

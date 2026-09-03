@@ -74,6 +74,25 @@ class DocumentMetadata(BaseModel):
     duplicate_of: Optional[str] = None
     duplicate_type: Optional[str] = None  # 'exact' | 'near-visual' | 'near-text'
 
+class DetectedFont(BaseModel):
+    name: str
+    size: float
+    color_hex: str
+    char_count: int
+    is_dominant: bool = False
+    is_outlier: bool = False
+
+class OcrAnalysis(BaseModel):
+    engine_used: str  # "PyMuPDF Vector Span Parser" | "Tesseract OCR 5.0" | "Office OpenXML Stream Parser"
+    total_characters: int = 0
+    total_words: int = 0
+    total_lines: int = 0
+    dominant_font: Optional[str] = None
+    detected_fonts: List[Dict[str, Any]] = []
+    font_anomalies: List[str] = []
+    full_text: str = ""
+    lines_preview: List[str] = []
+
 class AnalyzeResponse(BaseModel):
     document_id: str
     filename: str
@@ -98,4 +117,6 @@ class AnalyzeResponse(BaseModel):
     agent_confidence: float = 0.0
     # Granular forensic execution trace & timing telemetry
     execution_telemetry: Optional[Dict[str, Any]] = None
+    # Extracted OCR text & Typography analysis
+    ocr_analysis: Optional[OcrAnalysis] = None
 

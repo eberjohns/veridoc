@@ -17,7 +17,10 @@ import {
   X, 
   ShieldAlert, 
   Eye, 
-  CheckCircle2 
+  CheckCircle2,
+  Search,
+  Check,
+  Sparkles
 } from 'lucide-react';
 
 export default function Zone3Auditor({
@@ -31,9 +34,11 @@ export default function Zone3Auditor({
   activeLayers = {},
   applicableLayers = []
 }) {
-  const [activeTab, setActiveTab] = useState('findings'); // 'findings' | 'metadata'
+  const [activeTab, setActiveTab] = useState('findings'); // 'findings' | 'metadata' | 'ocr'
   const [expandedCards, setExpandedCards] = useState({});
   const [inspectingFinding, setInspectingFinding] = useState(null);
+  const [ocrSearchQuery, setOcrSearchQuery] = useState('');
+  const [copiedText, setCopiedText] = useState(false);
 
   // Strict check: If no document is selected or analysis data is missing
   if (!currentDoc || !analysisData || (!analysisData.trust_score && analysisData.trust_score !== 0)) {
@@ -143,6 +148,7 @@ export default function Zone3Auditor({
       case 'cross_reference': return <FileSearch size={14} color="#3B82F6" />;
       case 'metadata': return <FileCode size={14} color="#8B5CF6" />;
       case 'font': return <Type size={14} color="#EC4899" />;
+      case 'ai_generation': return <Sparkles size={14} color="#7C3AED" />;
       default: return <AlertCircle size={14} color="#64748B" />;
     }
   };
@@ -227,7 +233,7 @@ export default function Zone3Auditor({
         </p>
       </div>
 
-      {/* 2. TABS: FINDINGS | METADATA */}
+      {/* 2. TABS: FINDINGS | METADATA | OCR & FONTS */}
       <div style={{
         display: 'flex', borderBottom: '1px solid #E2E8F0',
         backgroundColor: '#FAFAFA', flexShrink: 0
@@ -237,6 +243,9 @@ export default function Zone3Auditor({
         </button>
         <button onClick={() => setActiveTab('metadata')} style={tabStyle('metadata')}>
           METADATA
+        </button>
+        <button onClick={() => setActiveTab('ocr')} style={tabStyle('ocr')}>
+          OCR & FONTS
         </button>
       </div>
 
@@ -408,6 +417,30 @@ export default function Zone3Auditor({
                             <strong style={{ color: '#DC2626' }}>{finding.details.duplicate_of}</strong>
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* AI Generation Evidence Details */}
+                    {finding.layer_type === 'ai_generation' && (
+                      <div style={{
+                        backgroundColor: '#FAF5FF',
+                        padding: '10px 12px',
+                        borderRadius: '6px',
+                        marginBottom: '10px',
+                        border: '1px solid #E9D5FF',
+                        fontSize: '11px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
+                      }}>
+                        <div style={{ color: '#7C3AED', fontWeight: '700', fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Generative AI Artifacts
+                        </div>
+                        {finding.details?.ai_markers?.map((m, mIdx) => (
+                          <div key={mIdx} style={{ color: '#6B21A8', fontSize: '10.5px', lineHeight: '1.4' }}>
+                            • {m}
+                          </div>
+                        ))}
                       </div>
                     )}
 
@@ -615,6 +648,287 @@ export default function Zone3Auditor({
           )}
         </div>
       )}
+
+      {/* 5. OCR & TYPOGRAPHY TAB */}
+      {activeTab === 'ocr' && (() => {
+        const ocrAnalysis = analysisData?.ocr_analysis || {
+          engine_used: currentDoc?.filename?.toLowerCase().endsWith('.pdf') ? 'PyMuPDF Vector Span Parser' : 'Tesseract OCR 5.0 (Optical Scan)',
+          total_characters: analysisData?.summary?.length || 0,
+          total_words: 0,
+          total_lines: 0,
+          dominant_font: 'Standard Typography',
+          detected_fonts: [],
+          font_anomalies: [],
+          full_text: '',
+          lines_preview: []
+        };
+
+        const linesToDisplay = ocrAnalysis.lines_preview?.length 
+          ? ocrAnalysis.lines_preview 
+          : (ocrAnalysis.full_text ? ocrAnalysis.full_text.split('\n') : []);
+
+        const filteredLines = linesToDisplay.filter(l => 
+          !ocrSearchQuery || l.toLowerCase().includes(ocrSearchQuery.toLowerCase())
+        );
+
+        return (
+          <div style={{ padding: '14px', fontSize: '12px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '12px', flexShrink: 0 }}>
+            
+            {/* Extraction Engine & Telemetry Card */}
+            <div style={{ backgroundColor: '#EFF6FF', padding: '12px', borderRadius: '8px', border: '1px solid #BFDBFE' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FileText size={14} color="#2563EB" />
+                  <span style={{ fontWeight: '700', color: '#1D4ED8', fontSize: '11.5px', letterSpacing: '0.03em' }}>
+                    OCR & Layout Extraction
+                  </span>
+                </div>
+                <span style={{
+                  fontSize: '9.5px',
+                  fontWeight: '700',
+                  backgroundColor: '#DBEAFE',
+                  color: '#1E40AF',
+                  padding: '2px 6px',
+                  borderRadius: '4px'
+                }}>
+                  100% Deterministic
+                </span>
+              </div>
+
+              <div style={{ fontSize: '11px', color: '#1E40AF', fontWeight: '600', marginBottom: '10px' }}>
+                Engine: {ocrAnalysis.engine_used}
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '6px',
+                textAlign: 'center'
+              }}>
+                <div style={{ backgroundColor: '#FFFFFF', padding: '6px 4px', borderRadius: '6px', border: '1px solid #BFDBFE' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#1E40AF' }}>
+                    {(ocrAnalysis.total_characters || 0).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: '9.5px', color: '#64748B' }}>Characters</div>
+                </div>
+                <div style={{ backgroundColor: '#FFFFFF', padding: '6px 4px', borderRadius: '6px', border: '1px solid #BFDBFE' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#1E40AF' }}>
+                    {(ocrAnalysis.total_words || 0).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: '9.5px', color: '#64748B' }}>Words</div>
+                </div>
+                <div style={{ backgroundColor: '#FFFFFF', padding: '6px 4px', borderRadius: '6px', border: '1px solid #BFDBFE' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#1E40AF' }}>
+                    {(ocrAnalysis.total_lines || linesToDisplay.length || 0).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: '9.5px', color: '#64748B' }}>Lines</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Typography & Detected Fonts */}
+            <div style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Type size={14} color="#8B5CF6" />
+                  <span style={{ fontWeight: '700', color: '#1E293B', fontSize: '11.5px', letterSpacing: '0.03em' }}>
+                    Detected Typography ({ocrAnalysis.detected_fonts?.length || 1})
+                  </span>
+                </div>
+                <span style={{ fontSize: '10px', color: '#64748B' }}>
+                  Primary: <strong style={{ color: '#0F172A' }}>{ocrAnalysis.dominant_font?.split('-')[0] || 'Standard'}</strong>
+                </span>
+              </div>
+
+              {ocrAnalysis.detected_fonts && ocrAnalysis.detected_fonts.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {ocrAnalysis.detected_fonts.map((f, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        backgroundColor: '#FFFFFF',
+                        border: f.is_outlier ? '1.5px solid #F43F5E' : '1px solid #E2E8F0',
+                        borderRadius: '6px',
+                        padding: '8px 10px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '50%',
+                            backgroundColor: f.color_hex || '#000000',
+                            border: '1px solid #CBD5E1',
+                            flexShrink: 0
+                          }} />
+                          <span style={{ fontWeight: '700', color: '#0F172A', fontSize: '11px', fontFamily: 'monospace' }}>
+                            {f.name}
+                          </span>
+                        </div>
+                        <span style={{
+                          fontSize: '9px',
+                          fontWeight: '700',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          backgroundColor: f.is_dominant ? '#EFF6FF' : f.is_outlier ? '#FFF1F2' : '#F1F5F9',
+                          color: f.is_dominant ? '#2563EB' : f.is_outlier ? '#E11D48' : '#64748B',
+                          border: f.is_outlier ? '1px solid #FDA4AF' : 'none'
+                        }}>
+                          {f.is_dominant ? 'DOMINANT' : f.is_outlier ? 'OUTLIER / SPLICED' : `${f.size || 10}pt`}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: '#64748B' }}>
+                        <span>Size: {f.size || 10} pt • Color: {f.color_hex || '#000000'}</span>
+                        <span style={{ fontWeight: '600', color: '#334155' }}>{f.usage_percentage || 0}% ({f.char_count} chars)</span>
+                      </div>
+
+                      {/* Usage Progress Bar */}
+                      <div style={{ width: '100%', height: '3px', backgroundColor: '#F1F5F9', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${f.usage_percentage || 5}%`,
+                          height: '100%',
+                          backgroundColor: f.is_outlier ? '#F43F5E' : f.is_dominant ? '#2563EB' : '#94A3B8'
+                        }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: '11px', color: '#64748B', fontStyle: 'italic', padding: '6px 0' }}>
+                  Standard uniform raster typeface extracted.
+                </div>
+              )}
+            </div>
+
+            {/* Typography Anomalies / Inconsistencies */}
+            {ocrAnalysis.font_anomalies && ocrAnalysis.font_anomalies.length > 0 && (
+              <div style={{ backgroundColor: '#FFF1F2', padding: '12px', borderRadius: '8px', border: '1px solid #FECDD3' }}>
+                <div style={{ fontWeight: '700', color: '#E11D48', marginBottom: '6px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Typography & Font Splice Alerts
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {ocrAnalysis.font_anomalies.map((anom, idx) => (
+                    <div key={idx} style={{ fontSize: '10.5px', color: '#9F1239', lineHeight: '1.4' }}>
+                      • {anom}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Extracted Text Stream Viewer */}
+            <div style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: '700', color: '#1E293B', fontSize: '11.5px', letterSpacing: '0.03em' }}>
+                  Extracted Text Stream
+                </span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(ocrAnalysis.full_text || linesToDisplay.join('\n'));
+                    setCopiedText(true);
+                    setTimeout(() => setCopiedText(false), 2000);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '4px',
+                    padding: '3px 7px',
+                    fontSize: '10px',
+                    fontWeight: '600',
+                    color: '#334155',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {copiedText ? <Check size={11} color="#10B981" /> : <Copy size={11} />}
+                  <span>{copiedText ? 'Copied' : 'Copy All'}</span>
+                </button>
+              </div>
+
+              {/* Quick Text Search */}
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="Search extracted text..."
+                  value={ocrSearchQuery}
+                  onChange={(e) => setOcrSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '5px 8px 5px 26px',
+                    fontSize: '11px',
+                    borderRadius: '6px',
+                    border: '1px solid #CBD5E1',
+                    backgroundColor: '#FFFFFF',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <Search size={12} color="#94A3B8" style={{ position: 'absolute', left: '8px', top: '7px' }} />
+                {ocrSearchQuery && (
+                  <button
+                    onClick={() => setOcrSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '6px',
+                      top: '5px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#94A3B8',
+                      padding: '2px'
+                    }}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Text Stream Box */}
+              <div style={{
+                maxHeight: '260px',
+                overflowY: 'auto',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #E2E8F0',
+                borderRadius: '6px',
+                padding: '8px',
+                fontFamily: 'monospace',
+                fontSize: '10.5px',
+                lineHeight: '1.5',
+                color: '#334155',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}>
+                {filteredLines.length > 0 ? (
+                  filteredLines.map((line, lIdx) => (
+                    <div key={lIdx} style={{ display: 'flex', gap: '8px' }}>
+                      <span style={{ color: '#94A3B8', userSelect: 'none', minWidth: '24px', textAlign: 'right', fontSize: '9.5px' }}>
+                        {lIdx + 1}
+                      </span>
+                      <span style={{
+                        backgroundColor: ocrSearchQuery && line.toLowerCase().includes(ocrSearchQuery.toLowerCase()) ? '#FEF08A' : 'transparent'
+                      }}>
+                        {line || ' '}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>
+                    {ocrSearchQuery ? 'No matching text found' : 'No textual content extracted.'}
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        );
+      })()}
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

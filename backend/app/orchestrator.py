@@ -122,7 +122,7 @@ def compute_applicable_layers(
     - math: only if document has financial/numerical content detectible via OCR
     - font: only if document is a digital PDF (PyMuPDF provides span-level typeface data)
     """
-    layers = ["metadata", "splicing", "copy_paste", "cross_reference"]
+    layers = ["metadata", "splicing", "copy_paste", "cross_reference", "ai_generation"]
     if has_financial_content:
         layers.append("math")
     if is_pdf and is_digital_pdf:
@@ -247,7 +247,7 @@ async def orchestrate_analysis(
 
     # 5. OCR & Semantic Math Engine + Multi-Format Extraction
     t_ocr_start = time.perf_counter()
-    ocr_layers, ocr_findings = analyze_ocr_and_semantics(file_bytes, filename)
+    ocr_layers, ocr_findings, ocr_data = analyze_ocr_and_semantics(file_bytes, filename)
     t_ocr_ms = round((time.perf_counter() - t_ocr_start) * 1000, 1)
 
     # Extract full document text across all formats (DOCX headers/footers, XLSX, PDF, TXT)
@@ -255,7 +255,14 @@ async def orchestrate_analysis(
     from .modules.prompt_guard import scan_for_prompt_injection, create_injection_finding
     
     extracted_full_text = extract_any_document_text(file_bytes, filename)
-    ocr_text = extracted_full_text if extracted_full_text.strip() else ""
+    ocr_text = extracted_full_text if extracted_full_text.strip() else ocr_data.full_text
+
+    if not ocr_data.full_text.strip() and ocr_text.strip():
+        ocr_data.full_text = ocr_text
+        ocr_data.total_characters = len(ocr_text)
+        ocr_data.total_words = len(ocr_text.split())
+        ocr_data.lines_preview = [l.strip() for l in ocr_text.split("\n") if l.strip()][:100]
+        ocr_data.total_lines = len(ocr_data.lines_preview)
 
     # Prompt Injection & Manipulative Micro-Constraint Scanning
     security_findings = []
@@ -392,6 +399,16 @@ async def orchestrate_analysis(
     agent_confidence = 0.0
 
 
+    # AI Generation & Synthetic Document Detection Engine
+    from .modules.ai_generator_detector import analyze_ai_generation
+    ai_layer, ai_findings = analyze_ai_generation(
+        file_bytes=file_bytes,
+        filename=filename,
+        raw_metadata=doc_meta.raw_metadata or {},
+        primary_img_cv=first_cv,
+        full_text=ocr_text
+    )
+
     # Merge all algorithmic & security findings
     all_findings = []
     all_findings.extend(ocr_findings)
@@ -400,6 +417,7 @@ async def orchestrate_analysis(
     all_findings.extend(crypto_findings)
     all_findings.extend(quality_findings)
     all_findings.extend(security_findings)
+    all_findings.extend(ai_findings)
 
     # Fast finding summarization
     sorted_findings = sort_findings(all_findings)
@@ -414,6 +432,7 @@ async def orchestrate_analysis(
     combined_layers.update(visual_layers)
     combined_layers.update(ocr_layers)
     combined_layers["metadata"] = meta_layer
+    combined_layers["ai_generation"] = ai_layer
 
     t_total_ms = round((time.perf_counter() - t_start) * 1000, 1)
 
@@ -460,5 +479,6 @@ async def orchestrate_analysis(
         llm_summary=llm_summary,
         llm_context_findings=[],
         agent_confidence=agent_confidence,
-        execution_telemetry=telemetry_data
+        execution_telemetry=telemetry_data,
+        ocr_analysis=ocr_data
     )

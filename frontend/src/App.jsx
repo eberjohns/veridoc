@@ -26,9 +26,10 @@ export default function App() {
   const [analysisData, setAnalysisData] = useState(null);
 
 
-  // 7 Core Non-Redundant Forensic Checks & Opacity
+  // 8 Core Forensic Checks & Opacity
   const [activeLayers, setActiveLayers] = useState({
     prompt_guard: false,
+    ai_generation: true,
     metadata: true,
     copy_paste: true,
     splicing: true,

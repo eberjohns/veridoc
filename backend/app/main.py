@@ -72,7 +72,20 @@ async def get_document_analysis(doc_id: str):
     analysis_file = os.path.join(UPLOADS_DIR, f"{doc_id}.json")
     if os.path.exists(analysis_file):
         with open(analysis_file, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            # If cached result lacks ocr_analysis or ai_generation, regenerate from stored source file
+            if not data.get("ocr_analysis") or not data.get("layers", {}).get("ai_generation"):
+                for ext in [".pdf", ".docx", ".xlsx", ".png", ".jpg", ".jpeg", ".txt"]:
+                    src = os.path.join(UPLOADS_DIR, f"{doc_id}{ext}")
+                    if os.path.exists(src):
+                        with open(src, "rb") as sf:
+                            f_bytes = sf.read()
+                        manifest = load_manifest()
+                        res = await orchestrate_analysis(f_bytes, data.get("filename", f"{doc_id}{ext}"), manifest=manifest)
+                        with open(analysis_file, "w", encoding="utf-8") as wf:
+                            json.dump(res.model_dump(), wf, indent=2)
+                        return res.model_dump()
+            return data
 
     # Check manifest for matching filename
     manifest = load_manifest()
@@ -81,7 +94,18 @@ async def get_document_analysis(doc_id: str):
             item_file = os.path.join(UPLOADS_DIR, f"{item.get('id')}.json")
             if os.path.exists(item_file):
                 with open(item_file, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    if not data.get("ocr_analysis") or not data.get("layers", {}).get("ai_generation"):
+                        for ext in [".pdf", ".docx", ".xlsx", ".png", ".jpg", ".jpeg", ".txt"]:
+                            src = os.path.join(UPLOADS_DIR, f"{item.get('id')}{ext}")
+                            if os.path.exists(src):
+                                with open(src, "rb") as sf:
+                                    f_bytes = sf.read()
+                                res = await orchestrate_analysis(f_bytes, item.get("filename", f"{doc_id}{ext}"), manifest=manifest)
+                                with open(item_file, "w", encoding="utf-8") as wf:
+                                    json.dump(res.model_dump(), wf, indent=2)
+                                return res.model_dump()
+                    return data
 
     # Check sample files fallback
     sample_path = os.path.join(SAMPLE_DIR, doc_id)

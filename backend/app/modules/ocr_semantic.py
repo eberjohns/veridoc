@@ -10,9 +10,18 @@ except ImportError:
     import fitz  # PyMuPDF fallback
 
 import pytesseract
-from ..schemas import Finding, LayerOutput, BoundingBox
+from ..schemas import Finding, LayerOutput, BoundingBox, OcrAnalysis
 
 _TESSERACT_AVAILABLE: Optional[bool] = None
+
+def int_to_hex(color_int: int) -> str:
+    """Converts PyMuPDF integer color to hex string like #000000 or #FFFFFF."""
+    if color_int is None or color_int < 0:
+        return "#000000"
+    r = (color_int >> 16) & 255
+    g = (color_int >> 8) & 255
+    b = color_int & 255
+    return f"#{r:02X}{g:02X}{b:02X}"
 
 def is_tesseract_available() -> bool:
     """Checks whether the Tesseract OCR binary is accessible on the system."""
@@ -101,47 +110,37 @@ def extract_ocr_from_image(img_cv: np.ndarray) -> Tuple[str, List[Tuple[str, flo
 
         # Extract data with bounding boxes
         data = pytesseract.image_to_data(filtered, output_type=pytesseract.Output.DICT)
-        
-        words_with_boxes = []
-        full_text_lines = []
-        current_line = []
-        last_line_num = -1
+        full_text = pytesseract.image_to_string(filtered).strip()
 
-        for i in range(len(data['text'])):
-            text = data['text'][i].strip()
-            conf = float(data['conf'][i])
-            if text and conf > 30:
-                line_num = data['line_num'][i]
-                if line_num != last_line_num and current_line:
-                    full_text_lines.append(" ".join(current_line))
-                    current_line = []
-                current_line.append(text)
-                last_line_num = line_num
+        words: List[Tuple[str, float, float, float, float]] = []
+        n_boxes = len(data.get("text", []))
 
-                bx = round((data['left'][i] / w) * 100.0, 2)
-                by = round((data['top'][i] / h) * 100.0, 2)
-                bw = round((data['width'][i] / w) * 100.0, 2)
-                bh = round((data['height'][i] / h) * 100.0, 2)
-                words_with_boxes.append((text, bx, by, bw, bh))
+        for i in range(n_boxes):
+            word_str = data["text"][i].strip()
+            conf = int(data["conf"][i])
+            if word_str and conf > 30:
+                bx = (data["left"][i] / w) * 100.0
+                by = (data["top"][i] / h) * 100.0
+                bw = (data["width"][i] / w) * 100.0
+                bh = (data["height"][i] / h) * 100.0
+                words.append((word_str, bx, by, bw, bh))
 
-        if current_line:
-            full_text_lines.append(" ".join(current_line))
-
-        return "\n".join(full_text_lines), words_with_boxes
-    except Exception:
+        return full_text, words
+    except Exception as e:
+        print("Tesseract OCR extraction failed:", e)
         return "", []
 
 
-def analyze_ocr_and_semantics(file_bytes: bytes, filename: str) -> Tuple[Dict[str, LayerOutput], List[Finding]]:
+def analyze_ocr_and_semantics(
+    file_bytes: bytes,
+    filename: str
+) -> Tuple[Dict[str, LayerOutput], List[Finding], OcrAnalysis]:
     """
-    Algorithmic Semantic OCR Engine:
-    - Dynamic financial arithmetic & ledger balance reconciliation.
-    - Verbatim duplicate row/line repetition analysis.
-    - Typographic font inconsistency & kerning variance detection (digital PDFs).
-    - Image OCR support via Tesseract with automatic fallback.
+    Comprehensive OCR, Semantic Arithmetic, Typography, and Font Forensic Analyzer.
+    Extracts text, builds font distribution maps, flags typeface splices, and checks ledger balance mathematics.
     """
-    findings: List[Finding] = []
     layers: Dict[str, LayerOutput] = {}
+    findings: List[Finding] = []
     is_pdf = filename.lower().endswith(".pdf")
 
     math_boxes: List[BoundingBox] = []
@@ -150,6 +149,10 @@ def analyze_ocr_and_semantics(file_bytes: bytes, filename: str) -> Tuple[Dict[st
 
     full_text = ""
     all_lines: List[Tuple[str, int]] = []
+    engine_used = "PyMuPDF Vector Span Parser" if is_pdf else "Tesseract OCR 5.0"
+    
+    font_stats: Dict[str, Dict[str, Any]] = {}
+    font_anomalies: List[str] = []
 
     if is_pdf:
         try:
@@ -165,6 +168,7 @@ def analyze_ocr_and_semantics(file_bytes: bytes, filename: str) -> Tuple[Dict[st
 
             # If PDF has no digital text (scanned PDF), try Tesseract if available
             if not full_text.strip() and is_tesseract_available():
+                engine_used = "Tesseract OCR 5.0 (Optical Scan)"
                 for page_idx, page in enumerate(doc):
                     pix = page.get_pixmap(dpi=150)
                     img_np = np.frombuffer(pix.samples, dtype=np.uint8).reshape((pix.height, pix.width, pix.n))
@@ -183,7 +187,6 @@ def analyze_ocr_and_semantics(file_bytes: bytes, filename: str) -> Tuple[Dict[st
             currencies = re.findall(r"\$\s*([\d,]+\.\d{2})", full_text)
             curr_match = re.search(r"(?:current|ending|closing)\s+balance[^\d\n]*\n?[^\d\n]*([\d,]+\.\d{2})", full_text, re.IGNORECASE)
 
-            # Check if last transaction running balance differs from stated ending balance
             if len(currencies) >= 4 and curr_match:
                 stated_ending = parse_currency(curr_match.group(1)) or 0.0
                 last_running_balance = parse_currency(currencies[-2]) or 0.0
@@ -255,8 +258,8 @@ def analyze_ocr_and_semantics(file_bytes: bytes, filename: str) -> Tuple[Dict[st
                             details={"repetition_count": len(dup_boxes), "content": dup_text}
                         ))
 
-            # --- 3. Dynamic Font & Typography Anomaly Detection ---
-            for page in doc:
+            # --- 3. Dynamic Font & Typography Extraction & Anomaly Detection ---
+            for page_idx, page in enumerate(doc):
                 try:
                     font_spans = []
                     page_dict = page.get_text("dict")
@@ -266,6 +269,23 @@ def analyze_ocr_and_semantics(file_bytes: bytes, filename: str) -> Tuple[Dict[st
                                 font_spans.append(s)
 
                     if font_spans:
+                        for s in font_spans:
+                            fname = s.get("font", "Standard-Font")
+                            fsize = round(float(s.get("size", 10.0)), 1)
+                            fcolor = int_to_hex(s.get("color", 0))
+                            stext = s.get("text", "")
+                            
+                            key = f"{fname}_{fsize}_{fcolor}"
+                            if key not in font_stats:
+                                font_stats[key] = {
+                                    "name": fname,
+                                    "size": fsize,
+                                    "color_hex": fcolor,
+                                    "char_count": 0
+                                }
+                            font_stats[key]["char_count"] += len(stext)
+
+                        # Check for isolated numeric font mismatches
                         font_names = [s.get("font", "") for s in font_spans]
                         most_common_font = max(set(font_names), key=font_names.count)
                         
@@ -274,14 +294,22 @@ def analyze_ocr_and_semantics(file_bytes: bytes, filename: str) -> Tuple[Dict[st
                             sfont = s.get("font", "")
                             if re.search(r"\d{1,3}(,\d{3})*\.\d{2}", stext) and sfont != most_common_font and len(font_spans) > 20:
                                 sx0, sy0, sx1, sy1 = s.get("bbox")
-                                w, h = page.rect.width, page.rect.height
+                                rx0 = page.rect.x0
+                                ry0 = page.rect.y0
+                                w, h = max(1.0, page.rect.width), max(1.0, page.rect.height)
+                                
+                                bx = max(0.0, ((sx0 - rx0 - 2) / w) * 100.0)
+                                by = max(0.0, ((sy0 - ry0 - 2) / h) * 100.0)
+                                bw = min(100.0 - bx, ((sx1 - sx0 + 4) / w) * 100.0)
+                                bh = min(100.0 - by, ((sy1 - sy0 + 4) / h) * 100.0)
+
                                 f_box = BoundingBox(
                                     id=f"box-font-{len(font_boxes)}",
-                                    page=1,
-                                    x=round(((sx0 - 2) / w) * 100, 2),
-                                    y=round(((sy0 - 2) / h) * 100, 2),
-                                    width=round(((sx1 - sx0 + 4) / w) * 100, 2),
-                                    height=round(((sy1 - sy0 + 4) / h) * 100, 2),
+                                    page=page_idx + 1,
+                                    x=round(bx, 2),
+                                    y=round(by, 2),
+                                    width=round(bw, 2),
+                                    height=round(bh, 2),
                                     label="Typography / Font Outlier",
                                     layer_type="font",
                                     tag="FONT-MISMATCH",
@@ -289,31 +317,35 @@ def analyze_ocr_and_semantics(file_bytes: bytes, filename: str) -> Tuple[Dict[st
                                     target_finding_id=f"finding-font-{len(font_boxes)}"
                                 )
                                 font_boxes.append(f_box)
+                                font_anomaly_msg = f"Isolated number '{stext}' formatted in '{sfont}' differing from primary document font '{most_common_font}'."
+                                font_anomalies.append(font_anomaly_msg)
                                 findings.append(Finding(
                                     id=f"finding-font-{len(font_boxes)}",
                                     layer_type="font",
                                     severity="Low",
                                     title="Font Mismatch: Typeface Discrepancy",
-                                    description=f"Isolated numeric string '{stext}' formatted in '{sfont}' differing from primary document font '{most_common_font}'.",
+                                    description=font_anomaly_msg,
                                     confidence=0.88,
                                     bounding_boxes=[f_box],
                                     details={"detected_font": sfont, "base_font": most_common_font}
                                 ))
                                 break
-                except Exception:
-                    pass
+                except Exception as e:
+                    print("Font parsing warning on page:", e)
 
             doc.close()
         except Exception as e:
             print("Dynamic OCR parsing warning:", e)
     else:
         # Non-PDF Image file OCR via Tesseract
+        engine_used = "Tesseract OCR 5.0 (Optical Scan)"
         if is_tesseract_available():
             try:
                 pil_img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
                 img_cv = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
                 ocr_text, words = extract_ocr_from_image(img_cv)
                 full_text = ocr_text
+                all_lines = [(l.strip(), 1) for l in full_text.split("\n") if l.strip()]
 
                 # Image arithmetic check
                 currencies = re.findall(r"\$\s*([\d,]+\.\d{2})", full_text)
@@ -322,7 +354,6 @@ def analyze_ocr_and_semantics(file_bytes: bytes, filename: str) -> Tuple[Dict[st
                     stated_ending = parse_currency(curr_match.group(1)) or 0.0
                     last_running_balance = parse_currency(currencies[-2]) or 0.0
                     if abs(last_running_balance - stated_ending) > 0.01:
-                        # Find word box for ending balance
                         target_word = curr_match.group(1)
                         for word, wx, wy, ww, wh in words:
                             if target_word in word:
@@ -357,6 +388,31 @@ def analyze_ocr_and_semantics(file_bytes: bytes, filename: str) -> Tuple[Dict[st
             except Exception as e:
                 print("Image OCR warning:", e)
 
+    # Format detected fonts list and find dominant typeface
+    detected_fonts_list = list(font_stats.values())
+    detected_fonts_list.sort(key=lambda x: x["char_count"], reverse=True)
+    
+    total_chars = sum(f["char_count"] for f in detected_fonts_list) or len(full_text)
+    dominant_font = detected_fonts_list[0]["name"] if detected_fonts_list else "Standard OCR Font"
+    
+    for idx, f in enumerate(detected_fonts_list):
+        f["is_dominant"] = (idx == 0)
+        pct = (f["char_count"] / max(1, total_chars)) * 100.0
+        f["usage_percentage"] = round(pct, 1)
+        f["is_outlier"] = (pct < 4.0 and not f["is_dominant"])
+
+    ocr_analysis_obj = OcrAnalysis(
+        engine_used=engine_used,
+        total_characters=len(full_text),
+        total_words=len(full_text.split()),
+        total_lines=len(all_lines),
+        dominant_font=dominant_font,
+        detected_fonts=detected_fonts_list,
+        font_anomalies=font_anomalies,
+        full_text=full_text,
+        lines_preview=[l[0] for l in all_lines[:100]]
+    )
+
     layers["math"] = LayerOutput(
         layer_id="math",
         name="Math Check",
@@ -387,4 +443,4 @@ def analyze_ocr_and_semantics(file_bytes: bytes, filename: str) -> Tuple[Dict[st
         overlay_items=font_boxes
     )
 
-    return layers, findings
+    return layers, findings, ocr_analysis_obj

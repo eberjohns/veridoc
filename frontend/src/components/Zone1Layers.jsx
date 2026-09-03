@@ -7,7 +7,8 @@ import {
   Calculator,
   GitCompare,
   RotateCcw,
-  ShieldAlert
+  ShieldAlert,
+  Sparkles
 } from 'lucide-react';
 
 const STREAMLINED_LAYERS = [
@@ -17,6 +18,13 @@ const STREAMLINED_LAYERS = [
     desc: 'Adversarial instructions, micro-constraints & white-on-white text',
     color: '#DC2626',
     icon: ShieldAlert
+  },
+  {
+    id: 'ai_generation',
+    name: 'AI Generation Check',
+    desc: 'Synthetic diffusion grids, Midjourney/DALL-E & LLM watermarks',
+    color: '#7C3AED',
+    icon: Sparkles
   },
   {
     id: 'splicing',
